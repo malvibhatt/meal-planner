@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, 'release/**']
+
+# Least privilege: CI only ever reads the repo.
+permissions:
+  contents: read
+  pull-requests: read
+
+# A new push to the same branch cancels the run already in flight.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Always runs, on every PR and push. Its only job is to answer "what changed?"
+  # so the build jobs below can gate on the answer.
+  #
+  # Why not put `paths:` on the workflow itself? A workflow filtered out that way
+  # never reports a status at all, and a required check that never reports blocks
+  # the PR forever. A *job* skipped by `if:` does report — as "skipped", which
+  # branch protection counts as a pass.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      client: ${{ steps.filter.outputs.client }}
+      server: ${{ steps.filter.outputs.server }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # paths-filter diffs against the previous commit on push events,
+          # which needs more than the default shallow clone.
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            client:
+              - 'client/**'
+              - '.github/workflows/ci.yml'
+            # No ci.yml entry here on purpose: server/ does not exist yet, so
+            # editing this workflow must not wake the job below. Add
+            # '.github/workflows/ci.yml' back at MP-10.
+            server:
+              - 'server/**'
+
+  client:
+    needs: changes
+    if: ${{ needs.changes.outputs.client == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Single source of truth for the Node version, shared with local dev.
+          node-version-file: client/.nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      # Separate from the build so a type error reads as a type error.
+      # tsc -b is incremental, so `npm run build` re-uses this work.
+      - name: Typecheck
+        run: npx tsc -b
+      - run: npm run build
+
+  # Inert until MP-10 creates server/ — the filter above never matches, so this
+  # job is skipped and reports as a pass.
+  server:
+    needs: changes
+    if: ${{ needs.changes.outputs.server == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test

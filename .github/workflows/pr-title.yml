@@ -1,0 +1,51 @@
+# You squash-merge, so the PR title becomes the only commit message on main --
+# and that message is the entire input to release-please's version calculation.
+# A badly-titled PR silently produces a wrong version, and main's history can't
+# be reworded afterwards. This check is the one guard against that.
+name: PR Title
+
+on:
+  pull_request:
+    # `edited` matters: fix the title and the check must re-run.
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Per docs/GIT_AND_RELEASES.md §3. feat -> minor, fix/perf -> patch,
+          # the rest -> no release.
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            docs
+            test
+            chore
+            ci
+            build
+            revert
+          # Scope is optional -- a change spanning both halves takes none.
+          scopes: |
+            client
+            server
+          requireScope: false
+          # Subject must start lowercase and carry no trailing period.
+          # Ticket ids live in the branch name and the PR description, not here.
+          subjectPattern: ^(?![A-Z]).+[^.]$
+          subjectPatternError: |
+            The subject "{subject}" is invalid: start it with a lowercase
+            letter and drop any trailing period.
+            Format: <type>(<scope>): short imperative summary
