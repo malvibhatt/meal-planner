@@ -41,9 +41,11 @@ jobs:
             client:
               - 'client/**'
               - '.github/workflows/ci.yml'
+            # No ci.yml entry here on purpose: server/ does not exist yet, so
+            # editing this workflow must not wake the job below. Add
+            # '.github/workflows/ci.yml' back at MP-10.
             server:
               - 'server/**'
-              - '.github/workflows/ci.yml'
 
   client:
     needs: changes
