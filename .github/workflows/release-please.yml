@@ -1,0 +1,43 @@
+# Reads conventional commits on main and maintains an open Release PR.
+# Merging that PR is what creates the tag, the GitHub Release -- and, via the
+# deploy job below, what ships to production.
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+# Wider than ci.yml on purpose: this one writes tags/releases and opens a PR.
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      # Manifest mode prefixes every output with the package path.
+      released: ${{ steps.release.outputs['client--release_created'] }}
+      tag: ${{ steps.release.outputs['client--tag_name'] }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          # A PAT, not GITHUB_TOKEN. Anything GITHUB_TOKEN creates is
+          # invisible to other workflows, so the Release PR would get no
+          # CI checks -- and branch protection would then refuse to merge
+          # it, because required checks that never report stay pending.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Only fires on the push that MERGES a Release PR. Every other push to main
+  # leaves this skipped -- which is the whole "no deploy on every push" rule.
+  deploy:
+    needs: release
+    if: ${{ needs.release.outputs.released == 'true' }}
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ needs.release.outputs.tag }}
+    # Reusable workflows get no secrets unless passed; VERCEL_* are needed.
+    secrets: inherit
