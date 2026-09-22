@@ -3,6 +3,8 @@
 
   "separate-pull-requests": true,
 
+  "pull-request-title-pattern": "chore(${component}): release ${version}",
+
   "bootstrap-sha": "a7d0c7695272367fd5c50ae2ea41bd5038915f46",
 
   "bump-minor-pre-major": true,
