@@ -1,0 +1,1772 @@
+<title>Branch, Tag, Ship</title>
+<style>
+  :root{
+    --ground:#fcfcfd; --surface:#ffffff; --surface-2:#f4f5f8; --code-bg:#f4f5f8;
+    --ink:#17191f; --ink-2:#474b57; --ink-3:#6c7183;
+    --rule:#e2e4ea; --rule-strong:#c9ccd6;
+    --c-main:#4f5ad0; --c-release:#a8741a; --c-hotfix:#c0392b; --c-feature:#14775f;
+    --accent-soft:#edeefb; --warn-soft:#fbf2e0; --bad-soft:#fbeceb; --good-soft:#e7f4f0;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0e1014; --surface:#161920; --surface-2:#1c2029; --code-bg:#12151b;
+      --ink:#e7e9ef; --ink-2:#b0b5c2; --ink-3:#848a99;
+      --rule:#262b35; --rule-strong:#39404d;
+      --c-main:#8d97f5; --c-release:#e0ad4d; --c-hotfix:#ef8072; --c-feature:#43c2a3;
+      --accent:#8d97f5;
+      --accent-soft:#1b1f33; --warn-soft:#2b2417; --bad-soft:#2e1d1b; --good-soft:#12291f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0e1014; --surface:#161920; --surface-2:#1c2029; --code-bg:#12151b;
+    --ink:#e7e9ef; --ink-2:#b0b5c2; --ink-3:#848a99;
+    --rule:#262b35; --rule-strong:#39404d;
+    --c-main:#8d97f5; --c-release:#e0ad4d; --c-hotfix:#ef8072; --c-feature:#43c2a3;
+    --accent:#8d97f5;
+    --accent-soft:#1b1f33; --warn-soft:#2b2417; --bad-soft:#2e1d1b; --good-soft:#12291f;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--ground); color:var(--ink);
+    font-family:var(--sans); font-size:16px; line-height:1.65;
+    margin:0; padding:0;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+  /* ---------- header ---------- */
+  header.top{border-bottom:1px solid var(--rule);background:var(--surface)}
+  header.top .wrap{padding-top:52px;padding-bottom:40px}
+  .eyebrow{
+    font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-3);margin:0 0 14px;
+  }
+  h1{
+    font-family:var(--mono);font-weight:600;font-size:clamp(30px,4.4vw,46px);
+    letter-spacing:-.02em;line-height:1.1;margin:0 0 14px;text-wrap:balance;
+  }
+  h1 .sep{color:var(--accent)}
+  .lede{font-size:18px;color:var(--ink-2);max-width:62ch;margin:0}
+  .repo{font-family:var(--mono);font-size:13px;color:var(--ink-3);margin:18px 0 0}
+
+  /* ---------- layout ---------- */
+  .cols{display:grid;grid-template-columns:1fr;gap:0}
+  @media (min-width:1040px){
+    .cols{grid-template-columns:196px minmax(0,1fr);gap:56px;align-items:start}
+  }
+  nav.toc{padding:32px 0 0}
+  @media (min-width:1040px){nav.toc{position:sticky;top:24px;padding:56px 0 40px}}
+  nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 16px}
+  @media (min-width:1040px){nav.toc ol{flex-direction:column;gap:2px}}
+  nav.toc a{
+    font-family:var(--mono);font-size:12.5px;color:var(--ink-3);
+    text-decoration:none;display:block;padding:4px 0;border-bottom:1px solid transparent;
+  }
+  nav.toc a:hover,nav.toc a:focus-visible{color:var(--accent);border-bottom-color:var(--accent)}
+  nav.toc .n{color:var(--rule-strong);margin-right:7px}
+
+  main{padding:40px 0 96px;min-width:0}
+  @media (min-width:1040px){main{padding:56px 0 120px}}
+
+  section{margin:0 0 72px;scroll-margin-top:24px}
+  h2{
+    font-family:var(--mono);font-weight:600;font-size:22px;letter-spacing:-.01em;
+    margin:0 0 6px;padding-top:22px;border-top:2px solid var(--ink);text-wrap:balance;
+  }
+  h2 .n{color:var(--ink-3);font-weight:400;margin-right:10px}
+  h3{
+    font-family:var(--mono);font-weight:600;font-size:15px;
+    margin:36px 0 10px;color:var(--ink);
+  }
+  p{margin:0 0 16px;max-width:70ch}
+  ul,ol.body{margin:0 0 16px;padding-left:22px;max-width:70ch}
+  li{margin:0 0 7px}
+  strong{font-weight:650}
+  code{
+    font-family:var(--mono);font-size:.875em;background:var(--code-bg);
+    padding:.12em .38em;border-radius:3px;border:1px solid var(--rule);
+  }
+  pre{
+    font-family:var(--mono);font-size:13px;line-height:1.6;
+    background:var(--code-bg);border:1px solid var(--rule);border-radius:6px;
+    padding:16px 18px;overflow-x:auto;margin:0 0 18px;
+  }
+  pre code{background:none;border:none;padding:0;font-size:inherit}
+  a{color:var(--accent)}
+
+  /* ---------- figures ---------- */
+  figure{margin:26px 0 28px}
+  .figbox{
+    background:var(--surface);border:1px solid var(--rule);border-radius:8px;
+    padding:22px 20px 16px;overflow-x:auto;
+  }
+  figure svg{display:block;width:100%;min-width:560px;max-width:100%;height:auto}
+  figcaption{
+    font-size:13.5px;color:var(--ink-3);margin-top:12px;max-width:70ch;line-height:1.55;
+  }
+
+  /* svg paint classes — keeps theming in the token system */
+  .ln{stroke-width:2;fill:none}
+  .s-main{stroke:var(--c-main)} .f-main{fill:var(--c-main)}
+  .s-rel{stroke:var(--c-release)} .f-rel{fill:var(--c-release)}
+  .s-hot{stroke:var(--c-hotfix)} .f-hot{fill:var(--c-hotfix)}
+  .s-feat{stroke:var(--c-feature)} .f-feat{fill:var(--c-feature)}
+  .s-mute{stroke:var(--rule-strong)} .f-mute{fill:var(--ink-3)}
+  .dash{stroke-dasharray:5 4}
+  .node{stroke-width:2;fill:var(--surface)}
+  text{font-family:var(--mono);font-size:12px;fill:var(--ink-2)}
+  text.lbl{font-size:11.5px;fill:var(--ink-3)}
+  text.sha{font-size:11px;fill:var(--ink-3)}
+  text.tag{font-size:11.5px;font-weight:600}
+  text.hd{font-size:12.5px;font-weight:600;fill:var(--ink)}
+
+  /* ---------- term asides ---------- */
+  aside.term{
+    background:var(--surface-2);border-left:3px solid var(--accent);
+    border-radius:0 6px 6px 0;padding:14px 18px;margin:22px 0;max-width:70ch;
+  }
+  aside.term .t{
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-3);display:block;margin-bottom:5px;
+  }
+  aside.term .w{font-family:var(--mono);font-weight:650;color:var(--ink)}
+  aside.term p{margin:0;font-size:14.5px;color:var(--ink-2);max-width:none}
+
+  /* ---------- tables ---------- */
+  .tw{overflow-x:auto;margin:0 0 20px}
+  table{border-collapse:collapse;width:100%;min-width:460px;font-size:14.5px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-3);font-weight:500;border-bottom:1px solid var(--rule-strong);
+  }
+  td code{white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+
+  /* ---------- two-panel compare ---------- */
+  .compare{display:grid;gap:16px;margin:0 0 20px}
+  @media (min-width:720px){.compare{grid-template-columns:1fr 1fr}}
+  .panel{border:1px solid var(--rule);border-radius:8px;padding:16px 18px;background:var(--surface)}
+  .panel h4{
+    font-family:var(--mono);font-size:12.5px;margin:0 0 10px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .panel.bad{background:var(--bad-soft);border-color:var(--c-hotfix)}
+  .panel.good{background:var(--good-soft);border-color:var(--c-feature)}
+  .panel.bad h4{color:var(--c-hotfix)} .panel.good h4{color:var(--c-feature)}
+  .panel pre{background:var(--surface);margin:0}
+  .panel p{margin:0;font-size:14px;color:var(--ink-2)}
+
+  .rule-callout{
+    border:1px solid var(--rule-strong);border-radius:8px;background:var(--surface-2);
+    padding:16px 20px;margin:24px 0;max-width:70ch;
+  }
+  .rule-callout p{margin:0}
+  .rule-callout .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--accent);display:block;margin-bottom:6px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px 20px;margin:0 0 4px;padding:0;list-style:none}
+  .legend li{
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+    display:flex;align-items:center;gap:7px;margin:0;
+  }
+  .legend .sw{width:15px;height:3px;border-radius:2px;display:inline-block}
+
+  footer{border-top:1px solid var(--rule);padding:28px 0 56px}
+  footer p{font-family:var(--mono);font-size:12.5px;color:var(--ink-3);margin:0}
+
+  /* ---------- numbered step flow ---------- */
+  ol.steps{counter-reset:st;list-style:none;padding:0;margin:0 0 24px;max-width:none}
+  ol.steps > li{
+    counter-increment:st;position:relative;padding:0 0 24px 44px;margin:0;
+    border-left:2px solid var(--rule);
+  }
+  ol.steps > li:last-child{border-left-color:transparent;padding-bottom:0}
+  ol.steps > li::before{
+    content:counter(st);position:absolute;left:-14px;top:-2px;
+    width:26px;height:26px;border-radius:50%;
+    background:var(--surface);border:2px solid var(--rule-strong);
+    font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-2);
+    display:flex;align-items:center;justify-content:center;
+  }
+  ol.steps > li.ci::before{border-color:var(--c-main);color:var(--c-main)}
+  ol.steps h4{
+    font-family:var(--mono);font-size:14px;margin:0 0 9px;
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  }
+  ol.steps pre{margin:0 0 10px}
+  ol.steps p{margin:0;font-size:15px;color:var(--ink-2)}
+  .chip{
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    padding:2px 7px;border-radius:3px;border:1px solid;white-space:nowrap;font-weight:500;
+  }
+  .chip.you{color:var(--c-feature);border-color:var(--c-feature);background:var(--good-soft)}
+  .chip.ci{color:var(--c-main);border-color:var(--c-main);background:var(--accent-soft)}
+  .chip.wait{color:var(--c-release);border-color:var(--c-release);background:var(--warn-soft)}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">Meal Planner · engineering reference</p>
+    <h1>Branch<span class="sep">,</span> Tag<span class="sep">,</span> Ship</h1>
+    <p class="lede">How work moves from a feature branch to a released version — and what to do when it has to move sideways, backwards, or out to only 5% of users.</p>
+    <p class="repo">github.com/malvibhatt/meal-planner · monorepo: client/ + server/</p>
+  </div>
+</header>
+
+<div class="wrap cols">
+  <nav class="toc" aria-label="Contents">
+    <ol>
+      <li><a href="#model"><span class="n">01</span>The model</a></li>
+      <li><a href="#naming"><span class="n">02</span>Branch naming</a></li>
+      <li><a href="#mergeback"><span class="n">03</span>Merging back</a></li>
+      <li><a href="#hotfix"><span class="n">04</span>Hotfixes</a></li>
+      <li><a href="#pick"><span class="n">05</span>Merge vs cherry-pick</a></li>
+      <li><a href="#worked"><span class="n">06</span>Worked example</a></li>
+      <li><a href="#envs"><span class="n">07</span>Environments</a></li>
+      <li><a href="#rollout"><span class="n">08</span>Rollouts</a></li>
+      <li><a href="#changelog"><span class="n">09</span>Changelogs</a></li>
+      <li><a href="#setup"><span class="n">10</span>Deployment setup</a></li>
+      <li><a href="#walkthrough"><span class="n">11</span>Feature, end to end</a></li>
+      <li><a href="#incident"><span class="n">12</span>Hotfix &amp; rollback</a></li>
+      <li><a href="#partial"><span class="n">13</span>Scheduled &amp; partial</a></li>
+      <li><a href="#threeenv"><span class="n">14</span>Three environments</a></li>
+      <li><a href="#glossary"><span class="n">15</span>Glossary</a></li>
+      <li><a href="#cheat"><span class="n">16</span>Cheat sheet</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+  <!-- ================= 01 ================= -->
+  <section id="model">
+    <h2><span class="n">01</span>The model</h2>
+    <p>Trunk-based, with <strong>release branches cut from <code>main</code></strong>. No permanent <code>develop</code> branch — its only job is holding merged-but-unreleased work, and a release branch does that better because it exists only during the stabilization window instead of forever.</p>
+
+    <figure>
+      <div class="figbox">
+        <ul class="legend">
+          <li><span class="sw" style="background:var(--c-main)"></span>main (trunk)</li>
+          <li><span class="sw" style="background:var(--c-release)"></span>release branch</li>
+          <li><span class="sw" style="background:var(--c-feature)"></span>feature branch</li>
+        </ul>
+        <svg viewBox="0 0 720 236" role="img" aria-label="Main branch runs left to right; release/1.4 and release/1.5 are cut from it at different points, each ending in a tagged release, with fixes merging back into main.">
+          <defs>
+            <marker id="ar-main" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-main"/>
+            </marker>
+            <marker id="ar-rel" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-rel"/>
+            </marker>
+          </defs>
+
+          <text class="hd" x="8" y="64" style="fill:var(--c-main)">main</text>
+          <line class="ln s-main" x1="64" y1="58" x2="690" y2="58"/>
+          <circle class="node s-main" cx="86"  cy="58" r="6"/>
+          <circle class="node s-main" cx="160" cy="58" r="6"/>
+          <circle class="node s-main" cx="234" cy="58" r="6"/>
+          <circle class="node s-main" cx="308" cy="58" r="6"/>
+          <circle class="node s-main" cx="382" cy="58" r="6"/>
+          <circle class="node s-main" cx="456" cy="58" r="6"/>
+          <circle class="node s-main" cx="530" cy="58" r="6"/>
+          <circle class="node s-main" cx="604" cy="58" r="6"/>
+          <text class="lbl" x="600" y="36">features keep landing →</text>
+
+          <!-- release 1.4 -->
+          <path class="ln s-rel" d="M234 58 C 262 58, 268 142, 296 142"/>
+          <line class="ln s-rel" x1="296" y1="142" x2="400" y2="142"/>
+          <circle class="node s-rel" cx="308" cy="142" r="6"/>
+          <circle class="node s-rel" cx="382" cy="142" r="6"/>
+          <text class="lbl" x="258" y="128">release/1.4</text>
+          <rect x="356" y="164" width="60" height="19" rx="3" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="tag" x="364" y="177" style="fill:var(--c-release)">v1.4.0</text>
+          <!-- merge back -->
+          <path class="ln s-rel dash" d="M382 136 C 410 108, 428 76, 452 62" marker-end="url(#ar-rel)"/>
+          <text class="lbl" x="404" y="106" style="fill:var(--c-release)">merge back</text>
+
+          <!-- release 1.5 -->
+          <path class="ln s-rel" d="M530 58 C 558 58, 564 142, 592 142"/>
+          <line class="ln s-rel" x1="592" y1="142" x2="670" y2="142"/>
+          <circle class="node s-rel" cx="604" cy="142" r="6"/>
+          <text class="lbl" x="554" y="128">release/1.5</text>
+          <rect x="626" y="164" width="60" height="19" rx="3" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="tag" x="634" y="177" style="fill:var(--c-release)">v1.5.0</text>
+
+          <text class="lbl" x="8" y="210">Time →</text>
+          <line class="ln s-mute dash" x1="64" y1="204" x2="690" y2="204"/>
+        </svg>
+      </div>
+      <figcaption>Everything merges to <code>main</code>. A release branch is cut when the train departs, takes only stabilization commits, gets tagged, and merges back.</figcaption>
+    </figure>
+
+    <div class="rule-callout">
+      <span class="k">The three rules</span>
+      <p><strong>1.</strong> Everything merges to <code>main</code>; <code>main</code> is always green. &nbsp;<strong>2.</strong> A release branch is cut when the train departs, not when work starts — only stabilization commits land on it. &nbsp;<strong>3.</strong> Fixes made on a release branch merge back to <code>main</code>, or you ship the same bug again next release.</p>
+    </div>
+
+    <aside class="term">
+      <span class="t">Term</span>
+      <p><span class="w">Tag</span> — an immutable name for one exact commit. A branch pointer moves as you commit; a tag never does, which is why releases are tagged rather than branched.</p>
+    </aside>
+  </section>
+
+  <!-- ================= 02 ================= -->
+  <section id="naming">
+    <h2><span class="n">02</span>Branch naming</h2>
+    <p>Git has no idea what "client" or "server" means — a branch always spans the whole repo. The prefix is <strong>convention</strong>, and nothing but discipline stops you editing <code>server/</code> on a <code>client/</code> branch.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Branch</th><th>Use</th></tr></thead>
+        <tbody>
+          <tr><td><code>main</code></td><td>Trunk. Protected. Never commit directly.</td></tr>
+          <tr><td><code>client/mp-02-route-tree</code></td><td>Frontend ticket</td></tr>
+          <tr><td><code>server/mp-12-auth-endpoints</code></td><td>Backend ticket</td></tr>
+          <tr><td><code>mp-31-fetch-hook</code></td><td>Touches both — no prefix</td></tr>
+          <tr><td><code>release/1.4</code></td><td>Stabilization for the 1.4 train</td></tr>
+          <tr><td><code>hotfix/1.4.1-token-refresh</code></td><td>Urgent fix against a shipped release</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The reliable filter is <strong>paths</strong>, not names — this one git actually enforces:</p>
+    <pre><code>git log --oneline -- client/        # every commit touching the client
+git diff main --stat -- server/</code></pre>
+  </section>
+
+  <!-- ================= 03 ================= -->
+  <section id="mergeback">
+    <h2><span class="n">03</span>Why fixes must merge back</h2>
+    <p>A commit exists <em>only</em> on the branch you made it on. Git propagates nothing on its own. Here is what that costs when you forget.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 330" role="img" aria-label="Top: a fix committed on release slash 1.4 is absent from release slash 1.5 cut later from main, so the bug returns. Bottom: merging the release branch back into main means the next release branch inherits the fix.">
+          <defs>
+            <marker id="ar-bad" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-hot"/>
+            </marker>
+            <marker id="ar-good" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-feat"/>
+            </marker>
+          </defs>
+
+          <!-- ===== TOP: without merge back ===== -->
+          <text class="hd" x="8" y="20" style="fill:var(--c-hotfix)">✕ without merging back</text>
+          <text class="lbl" x="8" y="62">main</text>
+          <line class="ln s-main" x1="52" y1="56" x2="560" y2="56"/>
+          <circle class="node s-main" cx="72"  cy="56" r="5.5"/>
+          <circle class="node s-main" cx="146" cy="56" r="5.5"/>
+          <circle class="node s-main" cx="220" cy="56" r="5.5"/>
+          <circle class="node s-main" cx="368" cy="56" r="5.5"/>
+          <circle class="node s-main" cx="442" cy="56" r="5.5"/>
+          <text class="sha" x="212" y="40">C</text>
+          <text class="sha" x="434" y="40">F</text>
+
+          <path class="ln s-rel" d="M220 56 C 246 56, 252 118, 278 118"/>
+          <line class="ln s-rel" x1="278" y1="118" x2="340" y2="118"/>
+          <circle class="node s-rel" cx="294" cy="118" r="5.5"/>
+          <text class="lbl" x="242" y="106">release/1.4</text>
+          <text class="tag" x="286" y="140" style="fill:var(--c-hotfix)">G = the fix</text>
+
+          <path class="ln s-rel" d="M442 56 C 468 56, 474 118, 500 118"/>
+          <line class="ln s-rel" x1="500" y1="118" x2="586" y2="118"/>
+          <circle class="node s-rel" cx="516" cy="118" r="5.5"/>
+          <text class="lbl" x="464" y="106">release/1.5</text>
+          <rect x="524" y="130" width="168" height="21" rx="3" fill="var(--bad-soft)" stroke="var(--c-hotfix)"/>
+          <text class="tag" x="532" y="145" style="fill:var(--c-hotfix)">G missing → bug returns</text>
+
+          <line class="ln s-mute dash" x1="8" y1="176" x2="712" y2="176"/>
+
+          <!-- ===== BOTTOM: with merge back ===== -->
+          <text class="hd" x="8" y="206" style="fill:var(--c-feature)">✓ with merging back</text>
+          <text class="lbl" x="8" y="248">main</text>
+          <line class="ln s-main" x1="52" y1="242" x2="560" y2="242"/>
+          <circle class="node s-main" cx="72"  cy="242" r="5.5"/>
+          <circle class="node s-main" cx="146" cy="242" r="5.5"/>
+          <circle class="node s-main" cx="220" cy="242" r="5.5"/>
+          <circle class="node s-main" cx="368" cy="242" r="5.5"/>
+          <circle class="node s-main" cx="442" cy="242" r="5.5"/>
+          <text class="sha" x="212" y="226">C</text>
+          <text class="sha" x="356" y="226">M</text>
+
+          <path class="ln s-rel" d="M220 242 C 246 242, 252 302, 278 302"/>
+          <line class="ln s-rel" x1="278" y1="302" x2="330" y2="302"/>
+          <circle class="node s-rel" cx="294" cy="302" r="5.5"/>
+          <text class="lbl" x="242" y="290">release/1.4</text>
+          <text class="tag" x="286" y="324" style="fill:var(--c-feature)">G = the fix</text>
+          <path class="ln s-feat" d="M330 302 C 350 290, 354 262, 366 248" marker-end="url(#ar-good)"/>
+          <text class="lbl" x="336" y="272" style="fill:var(--c-feature)">merge</text>
+
+          <path class="ln s-rel" d="M442 242 C 468 242, 474 302, 500 302"/>
+          <line class="ln s-rel" x1="500" y1="302" x2="586" y2="302"/>
+          <circle class="node s-rel" cx="516" cy="302" r="5.5"/>
+          <text class="lbl" x="464" y="290">release/1.5</text>
+          <rect x="524" y="314" width="150" height="21" rx="3" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="tag" x="532" y="329" style="fill:var(--c-feature)">inherits G ✓</text>
+        </svg>
+      </div>
+      <figcaption>Top: <code>G</code> lives only on <code>release/1.4</code>. <code>release/1.5</code> is cut from <code>main</code>, which never saw it — so a bug your user already reported comes back. Bottom: one merge after tagging puts <code>G</code> on <code>main</code>, and every future release branch inherits it.</figcaption>
+    </figure>
+
+    <pre><code>git switch main &amp;&amp; git pull
+git merge --no-ff release/1.4
+git push</code></pre>
+    <p>This is the single most common release-flow mistake. Put it in the release checklist.</p>
+  </section>
+
+  <!-- ================= 04 ================= -->
+  <section id="hotfix">
+    <h2><span class="n">04</span>Hotfixes</h2>
+    <p>Production is on <code>v1.4.0</code> and a user hits an infinite login-refresh loop. Meanwhile <code>main</code> has moved on — half-finished filter work, a partly-migrated API layer. <strong>None of it is shippable</strong>, so you can't fix on <code>main</code> and deploy.</p>
+    <p>Branch from the <strong>tag</strong> instead. That is the exact code running in production.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 250" role="img" aria-label="Main continues past the v1.4.0 tag with unfinished work. A hotfix branch is cut from the tag itself, receives one commit, is tagged v1.4.1 and shipped, then merges back into main.">
+          <defs>
+            <marker id="ar-hot" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-hot"/>
+            </marker>
+          </defs>
+
+          <text class="hd" x="8" y="50" style="fill:var(--c-main)">main</text>
+          <line class="ln s-main" x1="64" y1="44" x2="660" y2="44"/>
+          <circle class="node s-main" cx="92"  cy="44" r="6"/>
+          <circle class="node s-main" cx="176" cy="44" r="6"/>
+          <circle class="node s-main" cx="260" cy="44" r="6"/>
+          <circle class="node s-main" cx="344" cy="44" r="6"/>
+          <circle class="node s-main" cx="428" cy="44" r="6"/>
+          <circle class="node s-main" cx="512" cy="44" r="6"/>
+          <rect x="286" y="12" width="196" height="20" rx="3" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="lbl" x="294" y="26">unfinished Phase 5 work — not shippable</text>
+
+          <!-- tag marker on main -->
+          <line class="ln s-mute dash" x1="176" y1="44" x2="176" y2="104"/>
+          <rect x="146" y="106" width="62" height="20" rx="3" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="tag" x="154" y="120" style="fill:var(--c-release)">v1.4.0</text>
+          <text class="lbl" x="128" y="144">what production runs</text>
+
+          <!-- hotfix branch from the tag -->
+          <path class="ln s-hot" d="M176 44 C 210 44, 214 186, 250 186"/>
+          <line class="ln s-hot" x1="250" y1="186" x2="352" y2="186"/>
+          <circle class="node s-hot" cx="286" cy="186" r="6"/>
+          <text class="lbl" x="214" y="174" style="fill:var(--c-hotfix)">hotfix/1.4.1-token-refresh</text>
+          <text class="sha" x="266" y="210">X = one fix</text>
+          <rect x="326" y="206" width="62" height="20" rx="3" fill="var(--bad-soft)" stroke="var(--c-hotfix)"/>
+          <text class="tag" x="334" y="220" style="fill:var(--c-hotfix)">v1.4.1</text>
+          <text class="lbl" x="396" y="220" style="fill:var(--c-hotfix)">← ship this</text>
+
+          <!-- merge back to main -->
+          <path class="ln s-hot dash" d="M352 186 C 430 176, 480 90, 508 52" marker-end="url(#ar-hot)"/>
+          <text class="lbl" x="424" y="128" style="fill:var(--c-hotfix)">merge back</text>
+        </svg>
+      </div>
+      <figcaption><code>v1.4.1</code> = production's exact code plus one commit. Branching from <code>main</code> instead would have made it "production plus one fix plus three weeks of unfinished work" — untestable at 11pm.</figcaption>
+    </figure>
+
+    <pre><code>git switch -c hotfix/1.4.1-token-refresh v1.4.0   # branch FROM THE TAG
+git commit -m "fix(client): stop refresh loop on expired token"
+git tag -a v1.4.1 -m "Hotfix 1.4.1"
+git push origin hotfix/1.4.1-token-refresh v1.4.1
+
+git switch main &amp;&amp; git merge --no-ff hotfix/1.4.1-token-refresh</code></pre>
+    <p>Also merge the hotfix into any <em>live</em> release branch — <code>release/1.5</code> was cut before the fix existed, so it needs it too.</p>
+  </section>
+
+  <!-- ================= 05 ================= -->
+  <section id="pick">
+    <h2><span class="n">05</span>Merge vs cherry-pick</h2>
+
+    <aside class="term">
+      <span class="t">Term</span>
+      <p><span class="w">SHA</span> — a commit's id, a fingerprint hashed from its files, message, author <em>and parent</em>. Change any byte and you get a different SHA, which is why the same fix on two branches is two unrelated commits.</p>
+    </aside>
+    <aside class="term">
+      <span class="t">Term</span>
+      <p><span class="w">Cherry-pick</span> — copy one commit's <em>changes</em> onto another branch, ignoring its history. You get a new commit with the same diff and a different SHA.</p>
+    </aside>
+
+    <p>The clean rule is directional:</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Direction</th><th>Use</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td><code>release/1.4</code> → <code>main</code></td><td><strong>merge</strong></td><td>You want <em>everything</em> on that branch</td></tr>
+          <tr><td><code>main</code> → <code>release/1.4</code></td><td><strong>cherry-pick</strong></td><td>You want one fix, definitely not main's new features</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 276" role="img" aria-label="Merge follows ancestry and brings commits C, D, E and P. Cherry-pick computes only P's diff against its parent and applies it, bringing nothing else.">
+          <defs>
+            <marker id="ar-f" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-feat"/>
+            </marker>
+            <marker id="ar-m2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-main"/>
+            </marker>
+          </defs>
+
+          <!-- merge -->
+          <text class="hd" x="8" y="22">git merge main</text>
+          <text class="lbl" x="150" y="22">— follows ancestry, brings everything reachable</text>
+          <line class="ln s-main" x1="56" y1="62" x2="330" y2="62"/>
+          <circle class="node s-main" cx="76"  cy="62" r="6"/><text class="sha" x="70" y="46">C</text>
+          <circle class="node s-main" cx="148" cy="62" r="6"/><text class="sha" x="142" y="46">D</text>
+          <circle class="node s-main" cx="220" cy="62" r="6"/><text class="sha" x="214" y="46">E</text>
+          <circle class="node s-main" cx="292" cy="62" r="6"/><text class="sha" x="286" y="46">P</text>
+          <rect x="56" y="76" width="256" height="22" rx="3" fill="var(--accent-soft)" stroke="var(--c-main)"/>
+          <text class="tag" x="64" y="91" style="fill:var(--c-main)">all four arrive: C D E P</text>
+          <path class="ln s-main" d="M330 62 C 380 62, 400 62, 442 62" marker-end="url(#ar-m2)"/>
+          <line class="ln s-rel" x1="452" y1="62" x2="660" y2="62"/>
+          <circle class="node s-rel" cx="560" cy="62" r="6"/>
+          <text class="lbl" x="470" y="46">target branch</text>
+
+          <line class="ln s-mute dash" x1="8" y1="134" x2="712" y2="134"/>
+
+          <!-- cherry-pick -->
+          <text class="hd" x="8" y="166">git cherry-pick P</text>
+          <text class="lbl" x="172" y="166">— copies one diff, ignores ancestry</text>
+          <line class="ln s-main" x1="56" y1="208" x2="330" y2="208"/>
+          <circle class="node s-main" cx="76"  cy="208" r="6"/><text class="sha" x="70" y="192">C</text>
+          <circle class="node s-main" cx="148" cy="208" r="6"/><text class="sha" x="142" y="192">D</text>
+          <circle class="node s-main" cx="220" cy="208" r="6"/><text class="sha" x="214" y="192">E</text>
+          <circle class="node s-feat" cx="292" cy="208" r="6"/><text class="sha" x="286" y="192" style="fill:var(--c-feature)">P</text>
+          <rect x="196" y="222" width="182" height="22" rx="3" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="tag" x="204" y="237" style="fill:var(--c-feature)">P's diff = (P) − (E) only</text>
+          <path class="ln s-feat" d="M330 208 C 380 208, 400 208, 442 208" marker-end="url(#ar-f)"/>
+          <line class="ln s-rel" x1="452" y1="208" x2="660" y2="208"/>
+          <circle class="node s-feat" cx="560" cy="208" r="6"/>
+          <text class="sha" x="540" y="192" style="fill:var(--c-feature)">P′ new SHA</text>
+          <text class="lbl" x="600" y="238">C D E stay behind</text>
+        </svg>
+      </div>
+      <figcaption>Merge is about <em>history</em>; cherry-pick is about a <em>patch</em>. Cherry-pick uses <code>E</code> only to compute what <code>P</code> changed — none of <code>C</code>, <code>D</code>, <code>E</code>'s content travels.</figcaption>
+    </figure>
+
+    <div class="rule-callout">
+      <span class="k">The catch</span>
+      <p>Cherry-pick applies text; it does not check the result makes sense. If <code>P</code>'s fix uses a helper that <code>D</code> introduced, the patch applies cleanly onto a branch without <code>D</code> and then fails at runtime. Git reports <em>textual</em> conflicts, never <em>semantic</em> ones — always build and test on the target branch.</p>
+    </div>
+    <p>Use <code>git cherry-pick -x</code> to stamp <em>"cherry picked from commit a1b2c3d"</em> into the message. Costs nothing, and in six months it explains where the duplicate came from.</p>
+  </section>
+
+  <!-- ================= 06 ================= -->
+  <section id="worked">
+    <h2><span class="n">06</span>Worked example</h2>
+    <p>A fix made on a half-finished feature branch, needed in <code>1.4</code> before the feature is ready. <code>X</code> is the fix; <code>X′</code> is its cherry-picked copy on <code>main</code>; <code>H</code> is the eventual merge of the feature branch.</p>
+    <pre><code>*   6606c31 (main, tag: v1.5.0, release/1.5) H: merge client/mp-42-recipe-form
+|\
+| * cf178fe (client/mp-42-recipe-form) Z: prep items
+| * f60bc9d Y: ingredient rows
+| * ea8efa3 X: fix(client) dayjs week start      <span style="color:var(--c-feature)">← original</span>
+| * 152eecb W: recipe form scaffold
+* | ae63bf0 G
+| | * 763d0fe (tag: v1.4.0, release/1.4) stabilize 1.4
+| |/
+|/|
+* | 47feda3 F
+* | 4a88cfb X': fix(client) dayjs week start     <span style="color:var(--c-feature)">← cherry-picked copy</span>
+|/
+* 3e9ece9 E</code></pre>
+
+    <div class="compare">
+      <div class="panel good">
+        <h4>✓ What worked</h4>
+        <p><code>v1.4.0</code> shipped with the fix and without the unfinished form. <code>v1.5.0</code> got both. The merge at <code>H</code> was clean — both sides had made a byte-identical change, so git's three-way merge took it once.</p>
+      </div>
+      <div class="panel bad">
+        <h4>✕ What it cost</h4>
+        <p>The fix appears <strong>twice</strong> in <code>v1.5.0</code>'s history under two SHAs, permanently. Had the cherry-pick been adapted during a conflict, <code>H</code> would have conflicted — over a fix already made.</p>
+      </div>
+    </div>
+    <p>One ordering detail that's easy to get wrong: <code>X′</code> sits <em>before</em> <code>F</code>, and <code>release/1.4</code> is cut from <code>F</code>. That is the only reason <code>v1.4.0</code> contains the fix. Cherry-pick after cutting the branch and you'd have to cherry-pick onto <code>release/1.4</code> separately.</p>
+  </section>
+
+  <!-- ================= 07 ================= -->
+  <section id="envs">
+    <h2><span class="n">07</span>Environments are not releases</h2>
+    <p>An environment is a <strong>place</strong>. A version is <strong>what's deployed there</strong>. Three environments does not mean three release lines — it means one artifact being promoted.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 190" role="img" aria-label="One build produces one artifact which is promoted unchanged through dev, qa and prod, with pre-release tags marking maturity.">
+          <defs>
+            <marker id="ar-p" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-main"/>
+            </marker>
+          </defs>
+          <rect x="14" y="52" width="118" height="52" rx="6" fill="var(--accent-soft)" stroke="var(--c-main)"/>
+          <text class="hd" x="34" y="74" style="fill:var(--c-main)">build once</text>
+          <text class="sha" x="30" y="92">one artifact</text>
+
+          <path class="ln s-main" d="M138 78 L 196 78" marker-end="url(#ar-p)"/>
+
+          <rect x="206" y="52" width="132" height="52" rx="6" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="hd" x="250" y="74">dev</text>
+          <text class="sha" x="218" y="92">every push to main</text>
+
+          <path class="ln s-main" d="M344 78 L 386 78" marker-end="url(#ar-p)"/>
+          <text class="lbl" x="342" y="62">promote</text>
+
+          <rect x="396" y="52" width="132" height="52" rx="6" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="hd" x="440" y="74">qa</text>
+          <text class="sha" x="414" y="92">v1.5.0-rc.2</text>
+
+          <path class="ln s-main" d="M534 78 L 576 78" marker-end="url(#ar-p)"/>
+          <text class="lbl" x="532" y="62">promote</text>
+
+          <rect x="586" y="52" width="118" height="52" rx="6" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="hd" x="628" y="74" style="fill:var(--c-feature)">prod</text>
+          <text class="sha" x="606" y="92">v1.5.0</text>
+
+          <rect x="206" y="124" width="498" height="26" rx="4" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="tag" x="220" y="141" style="fill:var(--c-release)">same bytes all the way across — never rebuild per environment</text>
+        </svg>
+      </div>
+      <figcaption>Rebuild for each environment and prod runs a different artifact than the one QA approved — you've tested nothing. Build once, promote the same thing; use pre-release tags (<code>-rc.1</code>) to mark maturity.</figcaption>
+    </figure>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Env</th><th>Running</th><th>Trigger</th></tr></thead>
+        <tbody>
+          <tr><td>dev</td><td>latest <code>main</code></td><td>every push (automatic)</td></tr>
+          <tr><td>qa</td><td><code>v1.5.0-rc.2</code></td><td>any <code>v*-rc.*</code> tag</td></tr>
+          <tr><td>prod</td><td><code>v1.4.0</code></td><td>final <code>v*</code> tag + manual approval</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>That looks like three live versions but isn't — prod <em>will</em> move to 1.5.0 and 1.4.0 disappears. Genuine multi-release support means patching 1.4 <em>and</em> 1.5 indefinitely because different customers are stuck on each. Here nobody is stuck; you just haven't promoted yet.</p>
+  </section>
+
+  <!-- ================= 08 ================= -->
+  <section id="rollout">
+    <h2><span class="n">08</span>Rollouts</h2>
+    <aside class="term">
+      <span class="t">Term</span>
+      <p><span class="w">Rollout</span> — how a new version reaches users: all at once, or gradually. The gradual kinds exist so a bad release hits a small fraction of traffic before you notice and stop it.</p>
+    </aside>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 244" role="img" aria-label="A canary rollout sends five percent of traffic to the new version, then twenty-five, then one hundred, with a watch period between each step. Blue-green keeps two identical stacks and flips a router between them.">
+          <text class="hd" x="8" y="20">Canary — ramp traffic, watch metrics between steps</text>
+
+          <text class="lbl" x="8" y="62">10:00</text>
+          <rect x="62" y="46" width="31" height="22" rx="2" class="f-feat"/>
+          <rect x="93" y="46" width="589" height="22" rx="2" fill="var(--surface-2)" stroke="var(--rule)"/>
+          <text class="tag" x="70" y="62" style="fill:var(--surface)">5%</text>
+          <text class="lbl" x="600" y="62">95% on v1.4.0</text>
+
+          <text class="lbl" x="8" y="106">10:30</text>
+          <rect x="62" y="90" width="155" height="22" rx="2" class="f-feat"/>
+          <rect x="217" y="90" width="465" height="22" rx="2" fill="var(--surface-2)" stroke="var(--rule)"/>
+          <text class="tag" x="70" y="106" style="fill:var(--surface)">25%</text>
+
+          <text class="lbl" x="8" y="150">11:00</text>
+          <rect x="62" y="134" width="620" height="22" rx="2" class="f-feat"/>
+          <text class="tag" x="70" y="150" style="fill:var(--surface)">100% — v1.5.0 fully live</text>
+
+          <rect x="62" y="166" width="330" height="22" rx="3" fill="var(--bad-soft)" stroke="var(--c-hotfix)"/>
+          <text class="tag" x="70" y="182" style="fill:var(--c-hotfix)">errors spike → route the 5% back, ramp aborted</text>
+
+          <line class="ln s-mute dash" x1="8" y1="206" x2="712" y2="206"/>
+          <text class="hd" x="8" y="236">Blue-green — deploy to the idle stack, flip the router; rollback is flipping back</text>
+        </svg>
+      </div>
+      <figcaption>With a canary, 5% of users see a bug for 5 minutes instead of 100% seeing it for an hour. That is the whole value.</figcaption>
+    </figure>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Strategy</th><th>How</th><th>Rollback</th></tr></thead>
+        <tbody>
+          <tr><td>Big bang</td><td>Replace everything at once</td><td>Redeploy the old version — slow</td></tr>
+          <tr><td>Rolling</td><td>Update servers one at a time</td><td>Roll the rest back mid-flight</td></tr>
+          <tr><td>Blue-green</td><td>Two identical stacks; flip the router</td><td>Flip back — seconds</td></tr>
+          <tr><td>Canary</td><td>5% → 25% → 100%, watching metrics</td><td>Route the slice back</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Feature flags are the related-but-different one:</strong> code ships to 100% of servers with the feature <em>off</em>, then you enable it for 5% of users. Same gradual exposure, no deployment in the ramp — and you can kill it without a rollback.</p>
+  </section>
+
+  <!-- ================= 09 ================= -->
+  <section id="changelog">
+    <h2><span class="n">09</span>Changelogs</h2>
+    <p>A changelog is the human-readable "what changed in this version." Its audience is whoever is deciding whether to upgrade — including you in six months. With conventional commits you write none of it: the changelog is a <em>projection</em> of messages you were writing anyway.</p>
+
+    <div class="compare">
+      <div class="panel">
+        <h4>Commits you wrote</h4>
+        <pre><code>feat(client): MP-72 weekly
+  shopping list aggregation
+
+fix(client): MP-62 macros show
+  NaN when servings is 0
+
+chore(client): bump vite to 8.3.1</code></pre>
+      </div>
+      <div class="panel">
+        <h4>CHANGELOG.md generated</h4>
+        <pre><code>## 0.5.0 (2026-10-01)
+
+### Features
+* <strong>client:</strong> MP-72 weekly shopping
+  list aggregation (a1b2c3d)
+
+### Bug Fixes
+* <strong>client:</strong> MP-62 macros show
+  NaN when servings is 0 (f9e8d7a)</code></pre>
+      </div>
+    </div>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Prefix</th><th>Changelog section</th><th>Version bump</th></tr></thead>
+        <tbody>
+          <tr><td><code>feat:</code></td><td>Features</td><td>minor — 0.4.0 → 0.5.0</td></tr>
+          <tr><td><code>fix:</code></td><td>Bug Fixes</td><td>patch — 0.4.0 → 0.4.1</td></tr>
+          <tr><td><code>perf:</code></td><td>Performance</td><td>patch</td></tr>
+          <tr><td><code>chore:</code> <code>docs:</code> <code>test:</code></td><td>omitted</td><td>none</td></tr>
+          <tr><td><code>feat!:</code> / <code>BREAKING CHANGE:</code></td><td>⚠ Breaking Changes</td><td>major — 0.4.0 → 1.0.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Note <code>chore:</code> vanishes — nobody upgrading cares that you bumped Vite. The scope <code>(client)</code> becomes the bold prefix, which is how one changelog serves a monorepo.</p>
+  </section>
+
+    <!-- ================= 10 ================= -->
+  <section id="setup">
+    <h2><span class="n">10</span>One-time deployment setup</h2>
+    <p>Four services, wired once and then left alone. GitHub holds the code and runs the pipeline; each host watches the repo and takes only the folder it owns.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 256" role="img" aria-label="GitHub holds the monorepo; Vercel deploys the client folder, Render deploys the server folder, and Render connects to a Supabase Postgres database. The browser loads the client from Vercel and calls the API on Render.">
+          <defs>
+            <marker id="ar-d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-main"/>
+            </marker>
+            <marker id="ar-d2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-mute"/>
+            </marker>
+          </defs>
+
+          <rect x="16" y="98" width="152" height="62" rx="6" fill="var(--accent-soft)" stroke="var(--c-main)"/>
+          <text class="hd" x="34" y="124" style="fill:var(--c-main)">GitHub</text>
+          <text class="sha" x="34" y="142">meal-planner (tags)</text>
+
+          <path class="ln s-main" d="M172 122 C 220 122, 230 62, 286 62" marker-end="url(#ar-d)"/>
+          <text class="lbl" x="196" y="80">on tag</text>
+          <path class="ln s-main" d="M172 138 C 220 138, 230 196, 286 196" marker-end="url(#ar-d)"/>
+          <text class="lbl" x="196" y="186">on tag</text>
+
+          <rect x="294" y="34" width="176" height="58" rx="6" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="hd" x="312" y="58">Vercel</text>
+          <text class="sha" x="312" y="76">root dir: client/</text>
+
+          <rect x="294" y="168" width="176" height="58" rx="6" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="hd" x="312" y="192">Render</text>
+          <text class="sha" x="312" y="210">root dir: server/</text>
+
+          <rect x="536" y="168" width="168" height="58" rx="6" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="hd" x="554" y="192" style="fill:var(--c-feature)">Supabase</text>
+          <text class="sha" x="554" y="210">Postgres</text>
+
+          <path class="ln s-feat" d="M474 197 L 528 197" marker-end="url(#ar-d)"/>
+          <text class="lbl" x="466" y="186" style="fill:var(--c-feature)">DATABASE_URL</text>
+
+          <path class="ln s-mute dash" d="M382 96 L 382 164" marker-end="url(#ar-d2)"/>
+          <text class="lbl" x="392" y="134">browser calls /api</text>
+
+          <rect x="536" y="34" width="168" height="58" rx="6" fill="var(--surface)" stroke="var(--rule-strong)"/>
+          <text class="hd" x="554" y="58">Browser</text>
+          <text class="sha" x="554" y="76">loads the SPA</text>
+          <path class="ln s-mute" d="M528 62 L 478 62" marker-end="url(#ar-d2)"/>
+        </svg>
+      </div>
+      <figcaption>Both hosts point at a subdirectory of the same repo — the setting that makes a monorepo a non-issue. Only Render talks to the database; the browser never does.</figcaption>
+    </figure>
+
+    <h3>The five config files</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>File</th><th>What it does</th><th>When it runs</th></tr></thead>
+        <tbody>
+          <tr><td><code>.github/workflows/ci.yml</code></td><td>Lint, typecheck, build. Path-filtered so a docs edit doesn't build the client.</td><td>every PR + push to main</td></tr>
+          <tr><td><code>.github/workflows/release-please.yml</code></td><td>Reads conventional commits, maintains the Release PR, creates the tag when it's merged.</td><td>push to main</td></tr>
+          <tr><td><code>release-please-config.json</code></td><td>Declares <code>client</code> and <code>server</code> as separately-versioned packages.</td><td>read by the above</td></tr>
+          <tr><td><code>.release-please-manifest.json</code></td><td>Current version of each package. release-please rewrites it.</td><td>read + written</td></tr>
+          <tr><td><code>.github/workflows/deploy.yml</code></td><td>Triggers the production deploy on Vercel and Render.</td><td>on tag push</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <aside class="term">
+      <span class="t">Term</span>
+      <p><span class="w">Deploy hook</span> — a secret URL a host gives you; POST to it and that service redeploys. It's how a GitHub Action triggers Render without Render needing to watch the repo itself.</p>
+    </aside>
+
+    <h3>A · Vercel — frontend</h3>
+    <ol class="body">
+      <li>New Project → import <code>malvibhatt/meal-planner</code>.</li>
+      <li><strong>Root Directory: <code>client</code></strong>. Framework preset Vite; build <code>npm run build</code>; output <code>dist</code>.</li>
+      <li>Env var <code>VITE_API_URL</code> → your Render URL.</li>
+      <li>Settings → Git → set Production Branch to something unused (e.g. <code>production</code>) so pushes to <code>main</code> make <em>preview</em> deploys only. Production then happens only from the tag workflow.</li>
+      <li>Grab <code>VERCEL_TOKEN</code>, <code>VERCEL_ORG_ID</code>, <code>VERCEL_PROJECT_ID</code> → GitHub repo Settings → Secrets.</li>
+    </ol>
+    <p>Preview deploys per PR come free and are the single best reason to use Vercel here — every PR gets a real URL to click before you merge.</p>
+
+    <h3>B · Render — backend</h3>
+    <ol class="body">
+      <li>New → Web Service → same repo. <strong>Root Directory: <code>server</code></strong>.</li>
+      <li>Build: <code>npm ci &amp;&amp; npx prisma generate &amp;&amp; npm run build</code>. Start: <code>npm start</code>.</li>
+      <li>Pre-Deploy Command: <code>npx prisma migrate deploy</code> — runs migrations <em>before</em> the new code goes live.</li>
+      <li>Env: <code>DATABASE_URL</code>, <code>JWT_SECRET</code>, <code>CLIENT_ORIGIN</code>, <code>NODE_ENV=production</code>.</li>
+      <li>Turn <strong>Auto-Deploy off</strong>. Settings → Deploy Hook → copy the URL into a GitHub secret <code>RENDER_DEPLOY_HOOK</code>.</li>
+    </ol>
+
+    <h3>C · Supabase — database</h3>
+    <ol class="body">
+      <li>New project, pick a region near your Render region.</li>
+      <li>Connection string → use the <strong>pooler</strong> URL (port 6543) for the app, direct (5432) for migrations.</li>
+      <li>Put the pooler URL in Render's <code>DATABASE_URL</code>; add <code>DIRECT_URL</code> for Prisma's <code>directUrl</code>.</li>
+      <li>Keep a separate free project for local/dev, or run Postgres in Docker locally — never point dev at prod.</li>
+    </ol>
+
+    <div class="rule-callout">
+      <span class="k">Do you need Docker and Kubernetes?</span>
+      <p><strong>No — and adding them would cost you the React time you're trying to protect.</strong> Vercel and Render already containerize your app for you; Render builds an image from your repo without you writing a Dockerfile. Kubernetes solves orchestrating many services across many machines with a team operating it — you have two services and one developer. The one place Docker genuinely earns its keep here is <em>local</em> Postgres via <code>docker-compose</code>, so your machine matches Supabase. Revisit containers if you ever need system-level dependencies Render can't install; revisit K8s essentially never on a project this size.</p>
+    </div>
+  </section>
+
+  <!-- ================= 11 ================= -->
+  <section id="walkthrough">
+    <h2><span class="n">11</span>A feature, end to end</h2>
+    <p>Shipping <strong>MP-72, the weekly shopping list</strong> — a feature that touches the database, the API and the UI, so it exercises every part of the pipeline.</p>
+
+    <div class="rule-callout">
+      <span class="k">Correction worth reading first</span>
+      <p>Merging your feature PR into <code>main</code> does <strong>not</strong> create a tag. release-please instead opens (or updates) a <em>Release PR</em> titled <em>"chore: release client 0.5.0"</em>. <strong>The tag is created when you merge that second PR.</strong> This two-step is deliberate: automation proposes the version, you decide when to ship. Several features can accumulate in one Release PR before you release them together.</p>
+    </div>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 560 486" role="img" aria-label="Vertical flow: you push a branch, CI runs checks, you merge the pull request, CI deploys a preview and release-please opens a release pull request, you merge the release pull request, CI creates the tag and changelog, then the deploy workflow ships to Render and Vercel.">
+          <defs>
+            <marker id="ar-v" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-mute"/>
+            </marker>
+          </defs>
+
+          <text class="lbl" x="4" y="30" style="fill:var(--c-feature)">YOU</text>
+          <rect x="96" y="10" width="356" height="40" rx="5" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="hd" x="114" y="35">push branch + open PR</text>
+          <line class="ln s-mute" x1="274" y1="50" x2="274" y2="66" marker-end="url(#ar-v)"/>
+
+          <text class="lbl" x="4" y="94" style="fill:var(--c-main)">CI</text>
+          <rect x="96" y="74" width="356" height="40" rx="5" fill="var(--accent-soft)" stroke="var(--c-main)"/>
+          <text class="hd" x="114" y="99">ci.yml — lint, tsc, build, preview URL</text>
+          <line class="ln s-mute" x1="274" y1="114" x2="274" y2="130" marker-end="url(#ar-v)"/>
+
+          <text class="lbl" x="4" y="158" style="fill:var(--c-feature)">YOU</text>
+          <rect x="96" y="138" width="356" height="40" rx="5" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="hd" x="114" y="163">squash-merge the PR into main</text>
+          <line class="ln s-mute" x1="274" y1="178" x2="274" y2="194" marker-end="url(#ar-v)"/>
+
+          <text class="lbl" x="4" y="222" style="fill:var(--c-main)">CI</text>
+          <rect x="96" y="202" width="356" height="40" rx="5" fill="var(--accent-soft)" stroke="var(--c-main)"/>
+          <text class="hd" x="114" y="227">release-please opens the Release PR</text>
+          <line class="ln s-mute" x1="274" y1="242" x2="274" y2="258" marker-end="url(#ar-v)"/>
+
+          <text class="lbl" x="4" y="286" style="fill:var(--c-feature)">YOU</text>
+          <rect x="96" y="266" width="356" height="40" rx="5" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="hd" x="114" y="291">merge the Release PR  ← the decision point</text>
+          <line class="ln s-mute" x1="274" y1="306" x2="274" y2="322" marker-end="url(#ar-v)"/>
+
+          <text class="lbl" x="4" y="350" style="fill:var(--c-release)">CI</text>
+          <rect x="96" y="330" width="356" height="40" rx="5" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="hd" x="114" y="355" style="fill:var(--c-release)">tag client-v0.5.0 + CHANGELOG + Release</text>
+          <line class="ln s-mute" x1="274" y1="370" x2="274" y2="386" marker-end="url(#ar-v)"/>
+
+          <text class="lbl" x="4" y="414" style="fill:var(--c-main)">CI</text>
+          <rect x="96" y="394" width="356" height="40" rx="5" fill="var(--accent-soft)" stroke="var(--c-main)"/>
+          <text class="hd" x="114" y="419">deploy.yml fires on the tag</text>
+          <line class="ln s-mute" x1="274" y1="434" x2="274" y2="450" marker-end="url(#ar-v)"/>
+
+          <text class="lbl" x="4" y="478">PROD</text>
+          <rect x="96" y="458" width="356" height="28" rx="5" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="hd" x="114" y="477">migrate → Render → Vercel</text>
+        </svg>
+      </div>
+      <figcaption>Two human decisions in the whole chain: merge the feature PR, and merge the Release PR. Everything else is automatic.</figcaption>
+    </figure>
+
+    <ol class="steps">
+      <li>
+        <h4>Branch from main <span class="chip you">you</span></h4>
+        <pre><code>git switch main &amp;&amp; git pull
+git switch -c server/mp-72-shopping-list</code></pre>
+        <p>Server first — the client can't be built against an endpoint that doesn't exist.</p>
+      </li>
+      <li>
+        <h4>Commit, conventionally <span class="chip you">you</span></h4>
+        <pre><code>npx prisma migrate dev --name add_shopping_list_view
+git add -A
+git commit -m "feat(server): MP-72 weekly shopping list endpoint"
+git push -u origin server/mp-72-shopping-list</code></pre>
+        <p>The <code>feat(server):</code> prefix is what later becomes a minor version bump and a changelog line. A wrong prefix here means a wrong version number.</p>
+      </li>
+      <li class="ci">
+        <h4>CI runs on the PR <span class="chip ci">automatic</span></h4>
+        <p><code>ci.yml</code> sees <code>server/**</code> changed, runs only the server job: <code>npm ci</code>, lint, <code>tsc --noEmit</code>, tests. The PR shows a red or green check. Vercel posts a preview URL if the client changed.</p>
+      </li>
+      <li>
+        <h4>Read your own diff, then squash-merge <span class="chip you">you</span></h4>
+        <p>The <strong>PR title becomes the commit message</strong> on a squash merge — so the title must be conventional format, not "shopping list stuff". Repeat steps 1–4 for <code>client/mp-72-shopping-list-page</code>.</p>
+      </li>
+      <li class="ci">
+        <h4>release-please opens the Release PR <span class="chip ci">automatic</span></h4>
+        <p>It scans commits since the last tag, finds two <code>feat:</code> entries, and opens <em>"chore: release client 0.5.0 / server 0.2.0"</em> containing the bumped <code>package.json</code>, the updated manifest, and a written <code>CHANGELOG.md</code>. <strong>Nothing has shipped yet.</strong></p>
+      </li>
+      <li>
+        <h4>Merge the Release PR when you're ready to ship <span class="chip you">you</span></h4>
+        <p>This is the release decision. Leave it open to batch more features in; merge it to cut the release.</p>
+      </li>
+      <li class="ci">
+        <h4>Tags and GitHub Releases appear <span class="chip ci">automatic</span></h4>
+        <pre><code>client-v0.5.0
+server-v0.2.0</code></pre>
+        <p>Plus a GitHub Release per tag, with the changelog section as its notes.</p>
+      </li>
+      <li class="ci">
+        <h4>deploy.yml ships it <span class="chip ci">automatic</span></h4>
+        <pre><code>on:
+  push:
+    tags: ['client-v*', 'server-v*']</code></pre>
+        <p><strong>Order matters:</strong> server first (Render's pre-deploy runs <code>prisma migrate deploy</code>), then client. Ship a client that calls an endpoint that isn't live yet and you've broken production for the minute in between.</p>
+      </li>
+      <li>
+        <h4>Verify <span class="chip wait">2 min</span></h4>
+        <pre><code>curl https://meal-planner-api.onrender.com/health
+git describe --tags        # client-v0.5.0</code></pre>
+        <p>Then open the shopping list page in prod. If it's wrong, go to §12.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ================= 12 ================= -->
+  <section id="incident">
+    <h2><span class="n">12</span>Hotfix &amp; rollback in production</h2>
+
+    <h3>Scenario A — hotfix, step by step</h3>
+    <p><code>client-v0.5.0</code> is live. The shopping list crashes on an empty week. <code>main</code> already has half of Phase 6 merged, so you cannot ship from <code>main</code> — it would carry unfinished work into production.</p>
+
+    <aside class="term">
+      <span class="t">Term</span>
+      <p><span class="w">ref</span> — a name pointing at a commit. Branches live under <code>refs/heads/</code>, tags under <code>refs/tags/</code>. A tag is <em>not</em> "on" a branch; it points straight at a commit, which is why pushing one is its own action.</p>
+    </aside>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 216" role="img" aria-label="On your machine a hotfix branch holds a commit and a tag points at that same commit. Pushing the tag to origin creates a tag ref on GitHub, which triggers the deploy workflow.">
+          <defs>
+            <marker id="ar-t" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-main"/>
+            </marker>
+            <marker id="ar-t2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-rel"/>
+            </marker>
+          </defs>
+
+          <rect x="12" y="30" width="268" height="118" rx="7" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="hd" x="28" y="52">your machine</text>
+          <line class="ln s-hot" x1="40" y1="92" x2="250" y2="92"/>
+          <circle class="node s-hot" cx="76"  cy="92" r="6"/>
+          <circle class="node s-hot" cx="188" cy="92" r="6"/>
+          <text class="lbl" x="34" y="78" style="fill:var(--c-hotfix)">hotfix/0.5.1-empty-week</text>
+          <line class="ln s-rel dash" x1="188" y1="98" x2="188" y2="116"/>
+          <rect x="150" y="118" width="82" height="20" rx="3" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="tag" x="158" y="132" style="fill:var(--c-release)">client-v0.5.1</text>
+
+          <path class="ln s-main" d="M288 90 L 420 90" marker-end="url(#ar-t)"/>
+          <text class="lbl" x="292" y="78">git push origin client-v0.5.1</text>
+          <text class="lbl" x="326" y="110">origin = GitHub</text>
+
+          <rect x="430" y="30" width="278" height="118" rx="7" fill="var(--accent-soft)" stroke="var(--c-main)"/>
+          <text class="hd" x="446" y="52" style="fill:var(--c-main)">GitHub (origin)</text>
+          <text class="sha" x="446" y="80">refs/heads/hotfix/0.5.1-empty-week</text>
+          <text class="sha" x="446" y="102">refs/heads/main</text>
+          <rect x="440" y="112" width="212" height="22" rx="3" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="sha" x="448" y="127" style="fill:var(--c-release)">refs/tags/client-v0.5.1  ← new</text>
+
+          <path class="ln s-rel" d="M546 152 L 546 176" marker-end="url(#ar-t2)"/>
+          <rect x="404" y="180" width="290" height="26" rx="4" fill="var(--surface)" stroke="var(--c-release)"/>
+          <text class="tag" x="416" y="197" style="fill:var(--c-release)">deploy.yml — on: push: tags: client-v*</text>
+        </svg>
+      </div>
+      <figcaption>The tag is pushed to <strong><code>origin</code></strong> — the same remote as your branches, not a branch of its own. Arriving in <code>refs/tags/</code> on GitHub is what fires the workflow.</figcaption>
+    </figure>
+
+    <ol class="steps">
+      <li>
+        <h4>Find out what production actually runs <span class="chip you">you</span></h4>
+        <pre><code>git fetch --tags
+git tag -l 'client-v*' --sort=-v:refname | head -3</code></pre>
+        <p>Don't assume. Cross-check against the GitHub Releases page or the live Vercel deployment before you branch.</p>
+      </li>
+      <li>
+        <h4>Branch from the tag, not from main <span class="chip you">you</span></h4>
+        <pre><code>git switch -c hotfix/0.5.1-empty-week client-v0.5.0</code></pre>
+        <p>You now have production's exact code. Anything you add is the only difference between what's live and what you'll ship.</p>
+      </li>
+      <li>
+        <h4>Reproduce, fix, commit <span class="chip you">you</span></h4>
+        <pre><code>git commit -m "fix(client): MP-72 guard empty week in shopping list"</code></pre>
+        <p><code>fix:</code> not <code>feat:</code> — it's a patch bump. Keep it to the single smallest change that stops the crash; a hotfix is not the moment to tidy anything.</p>
+      </li>
+      <li>
+        <h4>Push the branch <span class="chip you">you</span></h4>
+        <pre><code>git push -u origin hotfix/0.5.1-empty-week</code></pre>
+        <p>Pushes the commit, not a release. Nothing deploys yet.</p>
+      </li>
+      <li class="ci">
+        <h4>CI validates the branch <span class="chip ci">automatic</span></h4>
+        <p><code>ci.yml</code> runs lint, typecheck and build. <strong>Wait for green.</strong> A hotfix that fails to build turns one incident into two.</p>
+      </li>
+      <li>
+        <h4>Open a PR into main — but don't wait for it <span class="chip you">you</span></h4>
+        <p>This exists so the fix reaches <code>main</code> (§03). You are not blocked on merging it; shipping happens via the tag in the next step, in parallel.</p>
+      </li>
+      <li>
+        <h4>Create the tag and push it to origin <span class="chip you">you</span></h4>
+        <pre><code>git tag -a client-v0.5.1 -m "Hotfix 0.5.1 — empty week crash"
+git push origin client-v0.5.1</code></pre>
+        <p><strong>Where does it go?</strong> To <code>origin</code> — the same remote your branches go to. A tag isn't pushed <em>onto</em> a branch; it becomes <code>refs/tags/client-v0.5.1</code> on GitHub, pointing at the commit you just made. Plain <code>git push</code> would <em>not</em> have sent it — tags always need naming explicitly.</p>
+      </li>
+      <li class="ci">
+        <h4>deploy.yml fires on the tag <span class="chip ci">automatic</span></h4>
+        <p>The workflow checks out <strong>the tagged commit</strong> — not <code>main</code>, not the branch tip — builds it, and deploys. That's why production gets exactly the code you tested and nothing else.</p>
+      </li>
+      <li>
+        <h4>Verify in production <span class="chip wait">2 min</span></h4>
+        <p>Load the page that was crashing. If it's still broken, roll back (Scenario B) rather than attempting a second hotfix under pressure.</p>
+      </li>
+      <li>
+        <h4>Merge the PR so main has the fix <span class="chip you">you</span></h4>
+        <p>Skip this and <code>0.6.0</code> reships the crash. This is rule 3 from §01, and it is the step people forget once the pressure is off.</p>
+      </li>
+      <li>
+        <h4>Tell release-please the version already went out <span class="chip you">you</span></h4>
+        <pre><code>// .release-please-manifest.json
+{ "client": "0.5.1", "server": "0.2.0" }</code></pre>
+        <p>Include this edit in the merge-back PR. In manifest mode release-please tracks versions in that file, <em>not</em> from your tags — so without it, it will happily propose <code>0.5.1</code> a second time and collide with the tag you just pushed.</p>
+      </li>
+    </ol>
+
+    <div class="rule-callout">
+      <span class="k">Why the hotfix is tagged by hand</span>
+      <p>release-please only watches <code>main</code>, and <code>main</code> is exactly what you can't ship during an incident. So a hotfix is the one release you tag manually — which is also why step 11 exists, to put the automation back in sync afterwards.</p>
+    </div>
+
+    <h3>Scenario B — rollback</h3>
+    <p>Code rolls back in seconds. Data does not. That asymmetry is the whole problem.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Layer</th><th>How to roll back</th><th>Time</th></tr></thead>
+        <tbody>
+          <tr><td>Vercel (client)</td><td>Dashboard → previous deployment → Promote to Production</td><td>seconds</td></tr>
+          <tr><td>Render (server)</td><td>Dashboard → Events → previous deploy → Rollback</td><td>~1 min</td></tr>
+          <tr><td>Supabase (schema)</td><td><strong>No safe automatic undo.</strong> See below.</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>If <code>v0.5.0</code> dropped a column and you roll the server back to <code>v0.4.0</code>, the old code queries a column that no longer exists. The deploy rolled back; the database didn't.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 186" role="img" aria-label="Expand and contract: add a nullable column, write to both columns, backfill and read the new one, and only drop the old column a release later. Rollback is safe during the middle releases.">
+          <rect x="86" y="34" width="576" height="56" rx="5" fill="var(--good-soft)" stroke="var(--c-feature)" class="dash"/>
+          <text class="tag" x="300" y="26" style="fill:var(--c-feature)">safe to roll back anywhere in here</text>
+
+          <text class="lbl" x="8" y="66">releases</text>
+
+          <rect x="98" y="48" width="128" height="30" rx="4" fill="var(--surface)" stroke="var(--rule-strong)"/>
+          <text class="sha" x="110" y="67">1 · add column</text>
+          <text class="lbl" x="110" y="106">nullable</text>
+
+          <rect x="240" y="48" width="128" height="30" rx="4" fill="var(--surface)" stroke="var(--rule-strong)"/>
+          <text class="sha" x="252" y="67">2 · write both</text>
+          <text class="lbl" x="252" y="106">old + new</text>
+
+          <rect x="382" y="48" width="128" height="30" rx="4" fill="var(--surface)" stroke="var(--rule-strong)"/>
+          <text class="sha" x="394" y="67">3 · read new</text>
+          <text class="lbl" x="394" y="106">backfill done</text>
+
+          <rect x="524" y="48" width="128" height="30" rx="4" fill="var(--bad-soft)" stroke="var(--c-hotfix)"/>
+          <text class="sha" x="536" y="67" style="fill:var(--c-hotfix)">4 · drop old</text>
+          <text class="lbl" x="536" y="106" style="fill:var(--c-hotfix)">point of no return</text>
+
+          <line class="ln s-mute" x1="98" y1="130" x2="662" y2="130"/>
+          <text class="lbl" x="98" y="152">Time — each box is a separate release, not one deploy</text>
+        </svg>
+      </div>
+      <figcaption>Expand/contract. Never drop a column in the same release that stops using it — leave one release of overlap so the previous version still runs against the new schema.</figcaption>
+    </figure>
+
+    <div class="rule-callout">
+      <span class="k">The rule</span>
+      <p><strong>Every migration must leave the previous release still working.</strong> Add columns nullable; rename by adding-then-copying rather than <code>RENAME</code>; drop only after a release has passed. Follow this and rollback is always "click the previous deploy." Break it and rollback means restoring a database backup.</p>
+    </div>
+  </section>
+
+    <!-- ================= 13 ================= -->
+  <section id="partial">
+    <h2><span class="n">13</span>Scheduled &amp; partial releases</h2>
+
+    <h3>When the Release PR actually opens</h3>
+    <p><code>release-please.yml</code> runs on <strong>every push to <code>main</code></strong>. Each run it looks at commits since the last release and either opens the Release PR, updates the one already open, or does nothing.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Commits since last release</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>only <code>chore:</code> <code>docs:</code> <code>test:</code></td><td>nothing — no PR</td></tr>
+          <tr><td>the first <code>feat:</code> or <code>fix:</code></td><td><strong>opens</strong> the Release PR</td></tr>
+          <tr><td>anything releasable after that</td><td><strong>updates</strong> the same PR — new version, new changelog</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>One long-lived PR that keeps rewriting itself until you merge it. And the version comes from the <em>set</em> of commits, not each one: three <code>feat:</code>s since <code>0.4.0</code> still produce <code>0.5.0</code>, a single minor bump. Highest bump wins — any breaking change makes it major, else any <code>feat:</code> makes it minor, else patch.</p>
+
+    <h3>The sprint release</h3>
+    <p>That accumulating PR <em>is</em> a scheduled-release mechanism. Nothing ships until you merge it, so merging it on the 30th is what cuts the release.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 208" role="img" aria-label="Across a sprint, each merged feature updates a single accumulating release pull request; merging that pull request on September 30 creates the tags and deploys.">
+          <defs>
+            <marker id="ar-s" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-rel"/>
+            </marker>
+          </defs>
+
+          <rect x="196" y="34" width="436" height="30" rx="4" fill="var(--warn-soft)" stroke="var(--c-release)" class="dash"/>
+          <text class="tag" x="210" y="54" style="fill:var(--c-release)">one Release PR — reopens nothing, just keeps updating</text>
+
+          <line class="ln s-main" x1="60" y1="128" x2="680" y2="128"/>
+          <circle class="node s-main" cx="80"  cy="128" r="6"/>
+          <circle class="node s-feat" cx="200" cy="128" r="6"/>
+          <circle class="node s-feat" cx="340" cy="128" r="6"/>
+          <circle class="node s-feat" cx="480" cy="128" r="6"/>
+          <circle class="node s-rel"  cx="620" cy="128" r="7"/>
+
+          <text class="lbl" x="58" y="112">Sep 15</text>
+          <text class="lbl" x="178" y="112">Sep 18</text>
+          <text class="lbl" x="318" y="112">Sep 22</text>
+          <text class="lbl" x="458" y="112">Sep 26</text>
+          <text class="lbl" x="596" y="112" style="fill:var(--c-release)">Sep 30</text>
+
+          <text class="sha" x="52" y="152">sprint starts</text>
+          <text class="sha" x="160" y="152">feat(server)</text>
+          <text class="sha" x="306" y="152">feat(client)</text>
+          <text class="sha" x="442" y="152">feat(client)</text>
+          <text class="sha" x="576" y="152" style="fill:var(--c-release)">merge it</text>
+
+          <line class="ln s-rel dash" x1="200" y1="68" x2="200" y2="120"/>
+          <line class="ln s-rel dash" x1="340" y1="68" x2="340" y2="120"/>
+          <line class="ln s-rel dash" x1="480" y1="68" x2="480" y2="120"/>
+          <path class="ln s-rel" d="M620 120 L 620 70" marker-end="url(#ar-s)"/>
+
+          <rect x="510" y="170" width="212" height="24" rx="3" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="tag" x="520" y="187" style="fill:var(--c-feature)">tags → deploy.yml → prod</text>
+          <text class="sha" x="60" y="187">client 0.4.0 → 0.5.0 · server 0.1.0 → 0.2.0</text>
+        </svg>
+      </div>
+      <figcaption>Every merge updates the same PR. The release date is simply the day you press merge on it.</figcaption>
+    </figure>
+
+    <div class="rule-callout">
+      <span class="k">Config change for coordinated releases</span>
+      <p>Set <code>"separate-pull-requests": false</code> in <code>release-please-config.json</code>. You get <strong>one</strong> Release PR bumping both <code>client</code> and <code>server</code>, so merging once tags both. With <code>true</code> you'd have two PRs to merge in the right order every sprint — friction you don't want when the halves ship together anyway.</p>
+    </div>
+
+    <h3>Feature flags — deploy is not release</h3>
+    <p>The cleanest answer to "this is merged but shouldn't ship" is to make shipping it <em>harmless</em>. A flag separates <strong>code reaching the server</strong> from <strong>users seeing the feature</strong>.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 168" role="img" aria-label="With a feature flag, code is deployed to one hundred percent of servers while the feature is visible to zero percent of users; flipping the flag later turns it on without a deployment.">
+          <text class="lbl" x="8" y="34">code deployed</text>
+          <rect x="150" y="18" width="420" height="22" rx="3" class="f-main"/>
+          <text class="tag" x="162" y="34" style="fill:var(--surface)">100% of servers — v0.6.0 including MP-82</text>
+
+          <text class="lbl" x="8" y="76">feature visible</text>
+          <rect x="150" y="60" width="420" height="22" rx="3" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="sha" x="162" y="76">0% of users — flag is off</text>
+
+          <path class="ln s-feat dash" d="M360 90 L 360 112"/>
+          <text class="lbl" x="372" y="106" style="fill:var(--c-feature)">flip the flag — no deploy involved</text>
+
+          <text class="lbl" x="8" y="140">feature visible</text>
+          <rect x="150" y="124" width="420" height="22" rx="3" class="f-feat"/>
+          <text class="tag" x="162" y="140" style="fill:var(--surface)">100% of users — flag on</text>
+        </svg>
+      </div>
+      <figcaption>The release becomes a config change instead of a deployment — and turning it back off is instant, with no rollback.</figcaption>
+    </figure>
+
+    <p><strong>Worked example.</strong> MP-82 "suggest more like this" is merged, but the ranking is still bad. Rather than keeping it off <code>main</code>:</p>
+    <pre><code>// client/src/config/flags.ts
+export const flags = {
+  mealSuggestions: import.meta.env.VITE_FF_SUGGESTIONS === 'true',
+};
+
+// client/src/pages/Dashboard/DashboardPage.tsx
+{flags.mealSuggestions &amp;&amp; &lt;SuggestionsPanel /&gt;}</code></pre>
+    <p>Set <code>VITE_FF_SUGGESTIONS=false</code> in Vercel's production env and <code>true</code> in preview. Now <code>main</code> ships whenever you like; you and your preview URLs see the panel, production doesn't.</p>
+
+    <div class="rule-callout">
+      <span class="k">Build-time vs runtime flags</span>
+      <p>Vite <strong>inlines</strong> <code>import.meta.env.VITE_*</code> at build time, so flipping the value needs a rebuild and redeploy — fine for "not this sprint", useless as a kill switch. For instant toggles, serve flags from the API (<code>GET /config/flags</code>) and read them at runtime. The server side is different: Node reads <code>process.env</code> at runtime, so a backend flag flips with a restart.</p>
+    </div>
+    <p><strong>Flags are debt.</strong> Delete each one once its feature is permanent, or you accumulate dead branches nobody dares remove.</p>
+
+    <h3>Partial release — shipping A but not B</h3>
+    <p><code>v2.0.0</code> is live. Since then <code>A</code> and <code>B</code> merged to <code>main</code> and <code>C</code> is in progress. You now decide to ship <strong>A only</strong>. Cut a release branch from the commit where A landed — the point <em>before</em> B.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 222" role="img" aria-label="A release branch is cut from the commit where feature A merged, before feature B. It is tagged v2.1.0 and shipped, then merged back into main so the version manifest stays in sync.">
+          <defs>
+            <marker id="ar-pr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-rel"/>
+            </marker>
+          </defs>
+
+          <text class="hd" x="8" y="62" style="fill:var(--c-main)">main</text>
+          <line class="ln s-main" x1="70" y1="56" x2="660" y2="56"/>
+          <circle class="node s-main" cx="96"  cy="56" r="6"/>
+          <circle class="node s-feat" cx="240" cy="56" r="6"/>
+          <circle class="node s-feat" cx="384" cy="56" r="6"/>
+          <circle class="node s-main" cx="528" cy="56" r="6"/>
+          <text class="sha" x="64" y="38">v2.0.0</text>
+          <text class="sha" x="232" y="38" style="fill:var(--c-feature)">A</text>
+          <text class="sha" x="376" y="38" style="fill:var(--c-feature)">B</text>
+          <text class="sha" x="504" y="38">C (wip)</text>
+          <rect x="330" y="70" width="200" height="20" rx="3" fill="var(--bad-soft)" stroke="var(--c-hotfix)"/>
+          <text class="sha" x="340" y="85" style="fill:var(--c-hotfix)">must NOT ship yet</text>
+
+          <path class="ln s-rel" d="M240 56 C 268 56, 274 150, 302 150"/>
+          <line class="ln s-rel" x1="302" y1="150" x2="400" y2="150"/>
+          <circle class="node s-rel" cx="330" cy="150" r="6"/>
+          <text class="lbl" x="256" y="138">release/2.1 — cut from A</text>
+          <rect x="376" y="164" width="62" height="20" rx="3" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="tag" x="384" y="178" style="fill:var(--c-release)">v2.1.0</text>
+          <text class="lbl" x="446" y="178">contains A, not B ✓</text>
+
+          <path class="ln s-rel dash" d="M400 144 C 460 130, 490 90, 522 62" marker-end="url(#ar-pr)"/>
+          <text class="lbl" x="432" y="116" style="fill:var(--c-release)">merge back — carries the manifest</text>
+          <text class="lbl" x="8" y="206">Next release on main computes 2.1.0 → 2.2.0 with B. Skip the merge back and it proposes 2.1.0 again, colliding with your tag.</text>
+        </svg>
+      </div>
+      <figcaption>You branch from a <em>commit</em>, not from a version — the version is the output. If A is a <code>feat:</code> and 2.0.0 is live, A alone produces 2.1.0.</figcaption>
+    </figure>
+
+    <ol class="steps">
+      <li>
+        <h4>Find where A landed <span class="chip you">you</span></h4>
+        <pre><code>git log --oneline main</code></pre>
+      </li>
+      <li>
+        <h4>Cut the branch from that commit <span class="chip you">you</span></h4>
+        <pre><code>git switch -c release/2.1 &lt;sha-of-A-merge&gt;
+git push -u origin release/2.1</code></pre>
+      </li>
+      <li>
+        <h4>Point release-please at the branch <span class="chip you">you</span></h4>
+        <pre><code>on:
+  push:
+    branches: [main, 'release/**']
+# in the step:
+with:
+  target-branch: ${{ github.ref_name }}</code></pre>
+      </li>
+      <li class="ci">
+        <h4>A Release PR opens on that branch <span class="chip ci">automatic</span></h4>
+        <p>It sees only A and proposes <code>2.1.0</code>.</p>
+      </li>
+      <li>
+        <h4>Merge it — tag and deploy follow <span class="chip you">you</span></h4>
+        <p><code>deploy.yml</code> fires on <code>v2.1.0</code>. Production has A and not B.</p>
+      </li>
+      <li>
+        <h4>Merge the release branch back into main <span class="chip you">you</span></h4>
+        <pre><code>git switch main &amp;&amp; git pull
+git merge --no-ff release/2.1
+git push</code></pre>
+        <p>release-please wrote the manifest bump and changelog <em>onto the release branch</em>. If that never reaches <code>main</code>, main still reads <code>2.0.0</code> and its next release proposes <code>2.1.0</code> a second time — colliding with the tag you already pushed.</p>
+      </li>
+    </ol>
+
+    <h3>Where the version number actually lives</h3>
+    <p><code>.release-please-manifest.json</code> is an <strong>ordinary tracked file</strong>. Nothing magic: it changes only when a commit changes it, and merges carry it like any other file. Only release-please edits it, and only in the commit created when you <strong>merge a Release PR</strong>.</p>
+    <p>That single fact explains the whole sequence below — including why <code>main</code> can sit at <code>2.0.0</code> while <code>v2.1.0</code> already exists on GitHub.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 368" role="img" aria-label="Three stages. First, A and B merge to main and the manifest stays at 2.0.0. Second, a release branch is cut from A and its release pull request is merged, changing the manifest to 2.1.0 on that branch only. Third, merging the branch back carries the file onto main.">
+          <defs>
+            <marker id="ar-w" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-rel"/>
+            </marker>
+          </defs>
+
+          <!-- stage 1 -->
+          <text class="hd" x="8" y="26">1 · A and B merge to main</text>
+          <line class="ln s-main" x1="112" y1="60" x2="368" y2="60"/>
+          <circle class="node s-main" cx="136" cy="60" r="6"/>
+          <circle class="node s-feat" cx="232" cy="60" r="6"/>
+          <circle class="node s-feat" cx="328" cy="60" r="6"/>
+          <text class="lbl" x="8" y="64" style="fill:var(--c-main)">main</text>
+          <text class="sha" x="106" y="44">v2.0.0</text>
+          <text class="sha" x="226" y="44" style="fill:var(--c-feature)">A</text>
+          <text class="sha" x="322" y="44" style="fill:var(--c-feature)">B</text>
+          <rect x="412" y="46" width="252" height="26" rx="4" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="sha" x="424" y="63">main manifest: 2.0.0 — unchanged</text>
+          <text class="lbl" x="112" y="88">Release PR proposes 2.1.0, but its edits live on release-please's own branch</text>
+
+          <line class="ln s-mute dash" x1="8" y1="106" x2="712" y2="106"/>
+
+          <!-- stage 2 -->
+          <text class="hd" x="8" y="134">2 · cut release/2.1 from A, merge its Release PR</text>
+          <line class="ln s-main" x1="112" y1="168" x2="368" y2="168"/>
+          <circle class="node s-main" cx="136" cy="168" r="6"/>
+          <circle class="node s-feat" cx="232" cy="168" r="6"/>
+          <circle class="node s-feat" cx="328" cy="168" r="6"/>
+          <text class="lbl" x="8" y="172" style="fill:var(--c-main)">main</text>
+          <rect x="412" y="154" width="252" height="26" rx="4" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="sha" x="424" y="171">main manifest: 2.0.0 — still</text>
+
+          <path class="ln s-rel" d="M232 168 C 254 168, 258 216, 280 216"/>
+          <line class="ln s-rel" x1="280" y1="216" x2="368" y2="216"/>
+          <circle class="node s-rel" cx="328" cy="216" r="6"/>
+          <text class="lbl" x="150" y="230" style="fill:var(--c-release)">release/2.1</text>
+          <text class="sha" x="316" y="242">R</text>
+          <rect x="412" y="202" width="252" height="26" rx="4" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="sha" x="424" y="219" style="fill:var(--c-release)">branch manifest: 2.1.0 ← changed here</text>
+          <rect x="412" y="234" width="120" height="22" rx="3" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="tag" x="422" y="249" style="fill:var(--c-release)">tag v2.1.0</text>
+
+          <line class="ln s-mute dash" x1="8" y1="274" x2="712" y2="274"/>
+
+          <!-- stage 3 -->
+          <text class="hd" x="8" y="302">3 · merge release/2.1 back into main</text>
+          <line class="ln s-main" x1="112" y1="336" x2="392" y2="336"/>
+          <circle class="node s-main" cx="136" cy="336" r="6"/>
+          <circle class="node s-feat" cx="232" cy="336" r="6"/>
+          <circle class="node s-feat" cx="304" cy="336" r="6"/>
+          <circle class="node s-main" cx="376" cy="336" r="7"/>
+          <text class="lbl" x="8" y="340" style="fill:var(--c-main)">main</text>
+          <text class="sha" x="370" y="320">M</text>
+          <path class="ln s-rel" d="M304 360 C 330 360, 352 346, 370 340" marker-end="url(#ar-w)"/>
+          <circle class="node s-rel" cx="280" cy="360" r="6"/>
+          <line class="ln s-rel" x1="232" y1="340" x2="232" y2="360"/>
+          <line class="ln s-rel" x1="232" y1="360" x2="280" y2="360"/>
+          <rect x="412" y="322" width="252" height="26" rx="4" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="sha" x="424" y="339" style="fill:var(--c-feature)">main manifest: 2.1.0 ← via the merge</text>
+        </svg>
+      </div>
+      <figcaption>Plain git throughout. You merged a branch that modified a file, so <code>main</code> now has that modification.</figcaption>
+    </figure>
+
+    <ol class="steps">
+      <li>
+        <h4>A and B merge to main <span class="chip you">you</span></h4>
+        <pre><code>// .release-please-manifest.json on main
+{ "client": "2.0.0" }        // unchanged</code></pre>
+        <p>A Release PR is open proposing <code>2.1.0</code> with both A and B in its changelog. Its edits live on release-please's own branch (<code>release-please--branches--main</code>), <strong>not on <code>main</code></strong>. You never merged it, so main's file still reads <code>2.0.0</code>.</p>
+      </li>
+      <li>
+        <h4>Cut release/2.1 from A's commit, merge its Release PR <span class="chip you">you</span></h4>
+        <pre><code>// on release/2.1 — commit R, written by release-please
+{ "client": "2.1.0" }        // changed HERE
+
+// on main — untouched
+{ "client": "2.0.0" }</code></pre>
+        <p>The file became <code>2.1.0</code> <em>on the release branch</em>, because that is where you merged a Release PR. Tag <code>v2.1.0</code> points at commit <code>R</code>, and <code>deploy.yml</code> ships it.</p>
+      </li>
+      <li>
+        <h4>Merge release/2.1 back into main <span class="chip you">you</span></h4>
+        <pre><code>git switch main &amp;&amp; git pull
+git merge --no-ff release/2.1
+git push
+
+// .release-please-manifest.json on main
+{ "client": "2.1.0" }        // now, because of the merge</code></pre>
+        <p>An ordinary merge commit carrying <code>R</code>'s file changes — the manifest bump <em>and</em> the <code>2.1.0</code> changelog section.</p>
+      </li>
+      <li class="ci">
+        <h4>release-please recomputes on main <span class="chip ci">automatic</span></h4>
+        <p>Last release now reads <code>2.1.0</code>; the only unreleased commit is B. It <strong>updates the existing PR</strong> — retitling it from <em>"release 2.1.0"</em> to <em>"release 2.2.0"</em> and rewriting the changelog to hold only B. You will not get a second PR to reconcile.</p>
+      </li>
+    </ol>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>After this event</th><th>manifest on <code>main</code></th><th>Release PR on main then proposes</th></tr></thead>
+        <tbody>
+          <tr><td>A merged</td><td>2.0.0</td><td>2.1.0</td></tr>
+          <tr><td>B merged</td><td>2.0.0</td><td>2.1.0 — still; one minor bump covers both</td></tr>
+          <tr><td><code>release/2.1</code> tagged <code>v2.1.0</code></td><td>2.0.0</td><td>2.1.0 — <strong>main doesn't know yet</strong></td></tr>
+          <tr><td><code>release/2.1</code> merged back</td><td><strong>2.1.0</strong></td><td><strong>2.2.0</strong> — only B is unreleased</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="rule-callout">
+      <span class="k">Row three is the dangerous state</span>
+      <p><code>v2.1.0</code> exists on GitHub, but <code>main</code> still believes the last release was <code>2.0.0</code>. Merge the Release PR on <code>main</code> while in that state and release-please tries to create <code>v2.1.0</code> <em>again</em> — colliding with the tag already pushed. The merge-back is what closes the window, so do it immediately after tagging, not "later".</p>
+    </div>
+
+    <p>Why no changelog conflict: <code>main</code>'s <code>CHANGELOG.md</code> and manifest are untouched while a Release PR sits open, since those edits live on release-please's branch. So the merge brings the <code>2.1.0</code> section cleanly, and <code>2.2.0</code> is later added on top — leaving a history that reads the way it actually happened: A shipped first, B second.</p>
+
+    <h3>Which one to reach for</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Situation</th><th>Do this</th></tr></thead>
+        <tbody>
+          <tr><td>Everything on <code>main</code> should ship</td><td>Merge the Release PR. No branch.</td></tr>
+          <tr><td>Something shouldn't ship — <strong>known in advance</strong></td><td>Feature-flag it, ship <code>main</code> freely</td></tr>
+          <tr><td>Something shouldn't ship — <strong>decided after it merged</strong></td><td>Release branch from the earlier commit</td></tr>
+          <tr><td>You must keep building while a release stabilizes</td><td>Release branch + freeze (§08)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Row three works, but don't let it become routine — every release branch is a merge-back you have to remember, and the manifest desync is silent until it bites.</p>
+  </section>
+
+    <!-- ================= 14 ================= -->
+  <section id="threeenv">
+    <h2><span class="n">14</span>Three environments: two models</h2>
+
+    <div class="rule-callout">
+      <span class="k">One release-please, never one per environment</span>
+      <p>release-please produces <strong>versions and tags</strong>; environments <strong>consume</strong> them. There is one version line — <code>v2.1.0</code> is <code>v2.1.0</code> whether it sits in QA or prod. A Release PR per environment would mean dev had its own version number, defeating the point of promoting one artifact. The rule: <strong>one Release PR per branch release-please targets</strong>, never per environment.</p>
+    </div>
+
+    <p>Deployment, release and exposure are three different events. They only <em>look</em> like one because on production they happen together.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Event</th><th>Means</th><th>Triggered by</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Deployment</strong></td><td>code is running on a machine</td><td>a push — branch or tag</td></tr>
+          <tr><td><strong>Release</strong></td><td>a version is declared</td><td>merging the Release PR</td></tr>
+          <tr><td><strong>Exposure</strong></td><td>users can see the feature</td><td>a feature flag (§13)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 224" role="img" aria-label="A git push routes to one of three deployments depending on what was pushed: the main branch deploys to dev, a release branch deploys to QA, and a version tag deploys to production.">
+          <defs>
+            <marker id="ar-rt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-mute"/>
+            </marker>
+          </defs>
+          <rect x="292" y="12" width="136" height="32" rx="5" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+          <text class="hd" x="330" y="33">git push</text>
+
+          <path class="ln s-mute" d="M360 44 L 360 62 L 128 62 L 128 88" marker-end="url(#ar-rt)"/>
+          <path class="ln s-mute" d="M360 44 L 360 88" marker-end="url(#ar-rt)"/>
+          <path class="ln s-mute" d="M360 44 L 360 62 L 592 62 L 592 88" marker-end="url(#ar-rt)"/>
+
+          <rect x="34" y="94" width="188" height="28" rx="4" fill="var(--accent-soft)" stroke="var(--c-main)"/>
+          <text class="sha" x="46" y="112" style="fill:var(--c-main)">branches: [main]</text>
+          <rect x="266" y="94" width="188" height="28" rx="4" fill="var(--warn-soft)" stroke="var(--c-release)"/>
+          <text class="sha" x="278" y="112" style="fill:var(--c-release)">branches: ['release/**']</text>
+          <rect x="498" y="94" width="188" height="28" rx="4" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="sha" x="510" y="112" style="fill:var(--c-feature)">tags: ['v*']</text>
+
+          <path class="ln s-mute" d="M128 122 L 128 146" marker-end="url(#ar-rt)"/>
+          <path class="ln s-mute" d="M360 122 L 360 146" marker-end="url(#ar-rt)"/>
+          <path class="ln s-mute" d="M592 122 L 592 146" marker-end="url(#ar-rt)"/>
+
+          <rect x="58" y="152" width="140" height="42" rx="6" fill="var(--surface)" stroke="var(--rule-strong)"/>
+          <text class="hd" x="108" y="171">dev</text>
+          <text class="lbl" x="72" y="188">automatic</text>
+          <rect x="290" y="152" width="140" height="42" rx="6" fill="var(--surface)" stroke="var(--rule-strong)"/>
+          <text class="hd" x="344" y="171">QA</text>
+          <text class="lbl" x="304" y="188">automatic</text>
+          <rect x="522" y="152" width="140" height="42" rx="6" fill="var(--surface)" stroke="var(--c-feature)"/>
+          <text class="hd" x="572" y="171" style="fill:var(--c-feature)">prod</text>
+          <text class="lbl" x="530" y="188" style="fill:var(--c-feature)">gated by you</text>
+
+          <text class="lbl" x="8" y="216">All three are ordinary deployments — only the trigger differs. Branches are for environments; tags are for production.</text>
+        </svg>
+      </div>
+      <figcaption>dev and QA track <em>branch heads</em>, so they always show "whatever is on that branch now". Only prod asks "which exact commit did we bless".</figcaption>
+    </figure>
+
+    <h3>Model A — freeze main</h3>
+    <p>One line, no release branch. Between code-freeze and release day, nothing merges to <code>main</code> except fixes. QA deploys <code>main</code> on demand.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 248" role="img" aria-label="Main carries features A B and C, then a shaded freeze window in which only fixes f1 and f2 merge. Dev deploys on every commit, QA deploys three times when a human triggers it, and production deploys once when the release pull request is merged.">
+          <rect x="316" y="30" width="268" height="196" rx="5" fill="var(--warn-soft)" stroke="var(--c-release)" class="dash"/>
+          <text class="tag" x="330" y="24" style="fill:var(--c-release)">FREEZE — fixes only, Sep 27 → Sep 30</text>
+
+          <text class="lbl" x="8" y="66" style="fill:var(--c-main)">main</text>
+          <line class="ln s-main" x1="70" y1="60" x2="694" y2="60"/>
+          <circle class="node s-feat" cx="140" cy="60" r="6"/><text class="sha" x="134" y="46">A</text>
+          <circle class="node s-feat" cx="210" cy="60" r="6"/><text class="sha" x="204" y="46">B</text>
+          <circle class="node s-feat" cx="280" cy="60" r="6"/><text class="sha" x="274" y="46">C</text>
+          <circle class="node s-hot"  cx="400" cy="60" r="6"/><text class="sha" x="392" y="46">f1</text>
+          <circle class="node s-hot"  cx="470" cy="60" r="6"/><text class="sha" x="462" y="46">f2</text>
+          <circle class="node s-rel"  cx="560" cy="60" r="7"/><text class="sha" x="536" y="46" style="fill:var(--c-release)">Release PR</text>
+          <circle class="node s-feat" cx="650" cy="60" r="6"/><text class="sha" x="644" y="46">D</text>
+
+          <text class="lbl" x="8" y="126">dev</text>
+          <line class="ln s-mute dash" x1="70" y1="120" x2="694" y2="120"/>
+          <circle class="f-main" cx="140" cy="120" r="4"/><circle class="f-main" cx="210" cy="120" r="4"/>
+          <circle class="f-main" cx="280" cy="120" r="4"/><circle class="f-main" cx="400" cy="120" r="4"/>
+          <circle class="f-main" cx="470" cy="120" r="4"/><circle class="f-main" cx="560" cy="120" r="4"/>
+          <circle class="f-main" cx="650" cy="120" r="4"/>
+          <text class="lbl" x="86" y="140">automatic on every merge</text>
+
+          <text class="lbl" x="8" y="176">QA</text>
+          <line class="ln s-mute dash" x1="70" y1="170" x2="694" y2="170"/>
+          <circle class="f-rel" cx="330" cy="170" r="5"/>
+          <circle class="f-rel" cx="435" cy="170" r="5"/>
+          <circle class="f-rel" cx="516" cy="170" r="5"/>
+          <text class="lbl" x="322" y="192" style="fill:var(--c-release)">manual — QA clicks Run workflow, deploys main's head</text>
+
+          <text class="lbl" x="8" y="222">prod</text>
+          <line class="ln s-mute dash" x1="70" y1="216" x2="694" y2="216"/>
+          <circle class="f-feat" cx="560" cy="216" r="6"/>
+          <text class="lbl" x="574" y="222" style="fill:var(--c-feature)">v2.1.0 — once</text>
+        </svg>
+      </div>
+      <figcaption>The freeze is what makes this safe: with no features merging, <code>main</code> is stable enough for QA to test directly.</figcaption>
+    </figure>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Event</th><th>dev</th><th>QA</th><th>prod</th><th>Tag</th></tr></thead>
+        <tbody>
+          <tr><td>A merged to main</td><td><strong>auto</strong></td><td>—</td><td>—</td><td>no</td></tr>
+          <tr><td>B merged to main</td><td><strong>auto</strong></td><td>—</td><td>—</td><td>no</td></tr>
+          <tr><td>C merged to main</td><td><strong>auto</strong></td><td>—</td><td>—</td><td>no</td></tr>
+          <tr><td><em>Sep 27 — freeze begins on main</em></td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>QA runs the pipeline</td><td>—</td><td><strong>deploys main</strong></td><td>—</td><td>no</td></tr>
+          <tr><td>f1 merged to main</td><td><strong>auto</strong></td><td>—</td><td>—</td><td>no</td></tr>
+          <tr><td>QA runs the pipeline</td><td>—</td><td><strong>deploys main</strong></td><td>—</td><td>no</td></tr>
+          <tr><td>f2 merged to main</td><td><strong>auto</strong></td><td>—</td><td>—</td><td>no</td></tr>
+          <tr><td>QA runs the pipeline</td><td>—</td><td><strong>deploys main</strong></td><td>—</td><td>no</td></tr>
+          <tr><td><em>Sep 30 — merge the Release PR on main</em></td><td><strong>auto</strong></td><td>—</td><td><strong>deploy</strong></td><td><strong>v2.1.0</strong></td></tr>
+          <tr><td><em>Sep 30 — freeze ends</em></td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>D merged to main</td><td><strong>auto</strong></td><td>—</td><td>—</td><td>no</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>That third QA run is the <strong>final sign-off</strong> on the commit about to be tagged — skip it and f2 reaches production having never been tested. One honest detail: prod isn't byte-identical to what QA approved, because merging the Release PR adds a commit. But it touches only <code>CHANGELOG.md</code>, <code>package.json</code> and the manifest — no source — so the built app is the same.</p>
+
+    <h3>Model A — the workflows</h3>
+    <pre><code># deploy-dev.yml
+on:
+  push:
+    branches: [main]          # every merge → dev
+
+# deploy-qa.yml
+on:
+  workflow_dispatch:          # ← puts a "Run workflow" button in the Actions tab
+    inputs:
+      ref:
+        description: 'Branch or tag to deploy'
+        default: 'main'
+
+# deploy-prod.yml
+on:
+  push:
+    tags: ['v*']              # only a tag reaches production</code></pre>
+    <p><code>workflow_dispatch</code> is the whole mechanism behind "the QA team ran a pipeline" — a button in the GitHub Actions UI, with a <code>ref</code> input so they can also pick a specific tag.</p>
+
+    <div class="rule-callout">
+      <span class="k">The freeze is a rule, not a git feature</span>
+      <p>Nothing in git enforces it. Teams use, weakest to strongest: <strong>1.</strong> a Slack announcement; <strong>2.</strong> branch protection — temporarily require an extra approver on <code>main</code>, or restrict merge rights to the release manager; <strong>3.</strong> a CI check that fails any PR without a <code>hotfix</code> label while a freeze flag is set. Most teams do 1 and rely on discipline.</p>
+    </div>
+
+    <h3>Model B — release branch</h3>
+    <p>The branch <em>is</em> the freeze, so <code>main</code> never closes. QA tracks the release branch automatically.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 292" role="img" aria-label="Main continues taking features D and E while a release branch cut from C receives fixes f1 and f2. Dev follows main, QA follows the release branch, and production deploys once on the tag.">
+          <text class="lbl" x="8" y="62" style="fill:var(--c-main)">main</text>
+          <line class="ln s-main" x1="70" y1="56" x2="694" y2="56"/>
+          <circle class="node s-feat" cx="140" cy="56" r="6"/><text class="sha" x="134" y="42">A</text>
+          <circle class="node s-feat" cx="210" cy="56" r="6"/><text class="sha" x="204" y="42">B</text>
+          <circle class="node s-feat" cx="280" cy="56" r="6"/><text class="sha" x="274" y="42">C</text>
+          <circle class="node s-feat" cx="470" cy="56" r="6"/><text class="sha" x="464" y="42">D</text>
+          <circle class="node s-feat" cx="560" cy="56" r="6"/><text class="sha" x="554" y="42">E</text>
+          <text class="lbl" x="600" y="42">main never closes</text>
+
+          <path class="ln s-rel" d="M280 56 C 304 56, 310 120, 334 120"/>
+          <line class="ln s-rel" x1="334" y1="120" x2="580" y2="120"/>
+          <circle class="node s-hot" cx="384" cy="120" r="6"/><text class="sha" x="376" y="140">f1</text>
+          <circle class="node s-hot" cx="454" cy="120" r="6"/><text class="sha" x="446" y="140">f2</text>
+          <circle class="node s-rel" cx="540" cy="120" r="7"/><text class="sha" x="516" y="140" style="fill:var(--c-release)">Release PR</text>
+          <text class="lbl" x="300" y="106" style="fill:var(--c-release)">release/2.1</text>
+
+          <text class="lbl" x="8" y="178">dev</text>
+          <line class="ln s-mute dash" x1="70" y1="172" x2="694" y2="172"/>
+          <circle class="f-main" cx="140" cy="172" r="4"/><circle class="f-main" cx="210" cy="172" r="4"/>
+          <circle class="f-main" cx="280" cy="172" r="4"/><circle class="f-main" cx="470" cy="172" r="4"/>
+          <circle class="f-main" cx="560" cy="172" r="4"/>
+          <text class="lbl" x="86" y="192">follows main — automatic</text>
+
+          <text class="lbl" x="8" y="226">QA</text>
+          <line class="ln s-mute dash" x1="70" y1="220" x2="694" y2="220"/>
+          <circle class="f-rel" cx="334" cy="220" r="5"/><circle class="f-rel" cx="384" cy="220" r="5"/>
+          <circle class="f-rel" cx="454" cy="220" r="5"/><circle class="f-rel" cx="540" cy="220" r="5"/>
+          <text class="lbl" x="344" y="240" style="fill:var(--c-release)">follows release/2.1 — also automatic</text>
+
+          <text class="lbl" x="8" y="268">prod</text>
+          <line class="ln s-mute dash" x1="70" y1="262" x2="694" y2="262"/>
+          <circle class="f-feat" cx="540" cy="262" r="6"/>
+          <text class="lbl" x="554" y="268" style="fill:var(--c-feature)">v2.1.0 — once</text>
+        </svg>
+      </div>
+      <figcaption>D and E merge to <code>main</code> on Sep 28 and simply aren't in this release. Nobody is blocked.</figcaption>
+    </figure>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Event</th><th>dev</th><th>QA</th><th>prod</th><th>Tag</th></tr></thead>
+        <tbody>
+          <tr><td>A, B, C merged to main</td><td><strong>auto</strong></td><td>—</td><td>—</td><td>no</td></tr>
+          <tr><td><em>Sep 27 — cut release/2.1 from C</em></td><td>—</td><td><strong>auto</strong></td><td>—</td><td>no</td></tr>
+          <tr><td>f1 merged to release/2.1</td><td>—</td><td><strong>auto</strong></td><td>—</td><td>no</td></tr>
+          <tr><td>D merged to main</td><td><strong>auto</strong></td><td>—</td><td>—</td><td>no</td></tr>
+          <tr><td>f2 merged to release/2.1</td><td>—</td><td><strong>auto</strong></td><td>—</td><td>no</td></tr>
+          <tr><td><em>Sep 30 — merge the Release PR on release/2.1</em></td><td>—</td><td><strong>auto</strong></td><td><strong>deploy</strong></td><td><strong>v2.1.0</strong></td></tr>
+          <tr><td>merge release/2.1 back into main</td><td><strong>auto</strong></td><td>—</td><td>—</td><td>no</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Model B — the workflows</h3>
+    <pre><code># deploy.yml — one file, three routes
+on:
+  push:
+    branches:
+      - main               # → dev
+      - 'release/**'       # → QA
+    tags:
+      - 'v*'               # → prod
+
+# release-please.yml — targets both branches
+on:
+  push:
+    branches: [main, 'release/**']
+with:
+  target-branch: ${{ github.ref_name }}</code></pre>
+    <p>Targeting both branches means <strong>two</strong> Release PRs during the window: the one on <code>main</code> is a preview of the <em>next</em> release — ignore it — and the one on <code>release/2.1</code> is the one you merge. After the merge-back, main's recomputes to 2.2.0 with D and E (§13).</p>
+
+    <h3>Which to pick</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th></th><th>Model A — freeze main</th><th>Model B — release branch</th></tr></thead>
+        <tbody>
+          <tr><td>Complexity</td><td><strong>one line, nothing to merge back</strong></td><td>branch + merge-back + manifest sync</td></tr>
+          <tr><td>Team during freeze</td><td>blocked — nobody merges</td><td><strong>unaffected — main stays open</strong></td></tr>
+          <tr><td>QA deploys</td><td>manually, from main</td><td><strong>automatically, from the branch</strong></td></tr>
+          <tr><td>Accidental feature in the release</td><td>possible — anything merged ships</td><td><strong>impossible — it isn't on the branch</strong></td></tr>
+          <tr><td>Manifest desync risk</td><td><strong>none</strong></td><td>real (§13)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Model A trades a few days of merge throughput for a much simpler git model — often the right call for a small team. Model B only pays off once idling people costs more than the branch bookkeeping.</p>
+    <div class="rule-callout">
+      <span class="k">For meal-planner</span>
+      <p><strong>Model A, and skip QA entirely.</strong> A QA environment with no QA team is a service to maintain for nothing — use Vercel's per-PR preview deploys instead, which give you a real URL per branch for free. So: dev tracks <code>main</code>, prod deploys on tag, "freeze" means "don't merge for a bit". Add Model B when a second person needs to test something you haven't merged.</p>
+    </div>
+  </section>
+
+  <!-- ================= 15 ================= -->
+  <section id="glossary">
+    <h2><span class="n">15</span>Glossary</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Term</th><th>Two lines</th></tr></thead>
+        <tbody>
+          <tr><td><code>SHA</code></td><td>A commit's id — a fingerprint hashed from its files, message, author and parent. Change any byte and the SHA changes, so the same fix on two branches is two unrelated commits.</td></tr>
+          <tr><td><code>tag</code></td><td>An immutable name for one exact commit. Branch pointers move as you commit; tags never do — which is why you tag releases. Use <code>-a</code> for anything you ship.</td></tr>
+          <tr><td><code>cherry-pick</code></td><td>Copy one commit's changes onto another branch, ignoring its history. Produces a new commit: same diff, different SHA.</td></tr>
+          <tr><td><code>merge --no-ff</code></td><td>Join two histories, forcing a merge commit even when a fast-forward is possible. Keeps each ticket a visible unit in <code>git log --graph</code>.</td></tr>
+          <tr><td><code>backport</code></td><td>Apply a fix made on <code>main</code> to an older release branch, usually by cherry-pick. Lets you patch a frozen version without dragging in new features.</td></tr>
+          <tr><td><code>rollout</code></td><td>How a version reaches users — all at once, or gradually. Gradual kinds limit how many people a bad release can reach before you stop it.</td></tr>
+          <tr><td><code>canary</code></td><td>A rollout that sends a small traffic slice to the new version first, watching error rates before ramping up. Abort by routing the slice back.</td></tr>
+          <tr><td><code>blue-green</code></td><td>Two identical production stacks; deploy to the idle one and flip the router. Rollback is flipping back, so it takes seconds.</td></tr>
+          <tr><td><code>Release PR</code></td><td>The pull request release-please keeps open on a branch, holding the pending version bump and changelog. Merging it is what creates the tag.</td></tr>
+          <tr><td><code>manifest</code></td><td><code>.release-please-manifest.json</code> — the file recording each package's current version. release-please reads versions from here, not from your tags.</td></tr>
+          <tr><td><code>feature flag</code></td><td>A switch that keeps shipped code turned off until you enable it. Decouples deploying from releasing, and kills a feature without a rollback.</td></tr>
+          <tr><td><code>workflow_dispatch</code></td><td>A GitHub Actions trigger that adds a "Run workflow" button instead of firing on a push. How a QA team deploys on demand rather than automatically.</td></tr>
+          <tr><td><code>code freeze</code></td><td>An agreed window where nothing merges to the release line except fixes. Enforced socially or by branch protection — git itself has no such concept.</td></tr>
+          <tr><td><code>rc</code></td><td>Release candidate — a pre-release tag like <code>v1.5.0-rc.2</code> marking a build under test. Promoted unchanged to <code>v1.5.0</code> if it passes.</td></tr>
+          <tr><td><code>LTS</code></td><td>Long-term support: a version you've promised to patch for a fixed window. Angular keeps ~3 majors alive at once, which is why backporting exists.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= 16 ================= -->
+  <section id="cheat">
+    <h2><span class="n">16</span>Cheat sheet</h2>
+    <pre><code># daily
+git switch main &amp;&amp; git pull
+git switch -c client/mp-02-route-tree
+git commit -m "feat(client): MP-02 route tree"
+git push -u origin client/mp-02-route-tree
+
+# inspect
+git log --graph --oneline --decorate --all   # topology
+git log --oneline -- client/                 # commits touching client
+git describe --tags                          # how far past the last tag
+git show &lt;sha&gt;                               # what one commit changed
+
+# tags
+git tag -a v1.4.0 -m "Release 1.4.0"
+git push origin v1.4.0        # tags are NOT pushed by plain `git push`
+git push --tags               # push all tags
+
+# moving changes
+git merge --no-ff release/1.4          # bring a whole branch
+git cherry-pick -x &lt;sha&gt;               # bring one commit's diff
+
+# undo
+git switch --detach v1.4.0    # inspect exact released code
+git revert &lt;sha&gt;              # safe on shared branches
+git reset --hard &lt;sha&gt;        # ONLY on unpushed local work</code></pre>
+
+    <div class="rule-callout">
+      <span class="k">Five things worth memorising</span>
+      <p><strong>1.</strong> Annotated tags (<code>-a</code>) for anything you ship. <strong>2.</strong> <code>git push</code> ignores tags — push them explicitly. <strong>3.</strong> Never rewrite pushed history; use <code>revert</code>. <strong>4.</strong> Merge release-branch fixes back to <code>main</code>. <strong>5.</strong> A branch pointer moves; a tag never does.</p>
+    </div>
+  </section>
+
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>Meal Planner · companion to docs/GIT_AND_RELEASES.md and docs/ROADMAP.md</p>
+  </div>
+</footer>
