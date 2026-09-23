@@ -5,6 +5,7 @@ function App() {
     <>
       <div>
         <h2>Meal Planner</h2>
+        <small className="app-version">v{__APP_VERSION__}</small>
       </div>
     </>
   );
