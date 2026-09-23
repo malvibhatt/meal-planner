@@ -224,7 +224,7 @@
       <li><a href="#naming"><span class="n">02</span>Conventions</a></li>
       <li><a href="#mergeback"><span class="n">03</span>Merging back</a></li>
       <li><a href="#hotfix"><span class="n">04</span>Hotfixes</a></li>
-      <li><a href="#pick"><span class="n">05</span>Merge vs cherry-pick</a></li>
+      <li><a href="#pick"><span class="n">05</span>Merge, rebase, pick</a></li>
       <li><a href="#worked"><span class="n">06</span>Worked example</a></li>
       <li><a href="#envs"><span class="n">07</span>Environments</a></li>
       <li><a href="#rollout"><span class="n">08</span>Rollouts</a></li>
@@ -576,7 +576,8 @@ git switch main &amp;&amp; git merge --no-ff hotfix/1.4.1-token-refresh</code></
 
   <!-- ================= 05 ================= -->
   <section id="pick">
-    <h2><span class="n">05</span>Merge vs cherry-pick</h2>
+    <h2><span class="n">05</span>Merge, rebase or cherry-pick</h2>
+    <p>Three operations move commits around, and they differ on one axis that matters more than any other: <strong>whether the commits you already pushed keep their SHAs</strong>. Merge and cherry-pick add; rebase <em>replaces</em>. Get that straight and every decision below follows.</p>
 
     <aside class="term">
       <span class="t">Term</span>
@@ -585,6 +586,10 @@ git switch main &amp;&amp; git merge --no-ff hotfix/1.4.1-token-refresh</code></
     <aside class="term">
       <span class="t">Term</span>
       <p><span class="w">Cherry-pick</span> — copy one commit's <em>changes</em> onto another branch, ignoring its history. You get a new commit with the same diff and a different SHA.</p>
+    </aside>
+    <aside class="term">
+      <span class="t">Term</span>
+      <p><span class="w">Rebase</span> — replay your commits on top of a new base. Same diffs, new parents, therefore <strong>new SHAs</strong>. The originals are discarded, so a branch you already pushed can only be updated with a force-push.</p>
     </aside>
 
     <p>The clean rule is directional:</p>
@@ -652,6 +657,129 @@ git switch main &amp;&amp; git merge --no-ff hotfix/1.4.1-token-refresh</code></
       <p>Cherry-pick applies text; it does not check the result makes sense. If <code>P</code>'s fix uses a helper that <code>D</code> introduced, the patch applies cleanly onto a branch without <code>D</code> and then fails at runtime. Git reports <em>textual</em> conflicts, never <em>semantic</em> ones — always build and test on the target branch.</p>
     </div>
     <p>Use <code>git cherry-pick -x</code> to stamp <em>"cherry picked from commit a1b2c3d"</em> into the message. Costs nothing, and in six months it explains where the duplicate came from.</p>
+
+    <h3>Merge or rebase, when your branch falls behind</h3>
+    <p>Different question from the one above. Nothing is moving <em>between</em> branches here — <code>main</code> has simply moved on while you worked, and your branch needs to catch up.</p>
+
+    <figure>
+      <div class="figbox">
+        <ul class="legend">
+          <li><span class="sw" style="background:var(--c-main)"></span>main</li>
+          <li><span class="sw" style="background:var(--c-feature)"></span>your branch</li>
+          <li><span class="sw" style="background:var(--rule-strong)"></span>discarded</li>
+        </ul>
+        <svg viewBox="0 0 720 300" role="img" aria-label="Merging main into your branch adds a merge commit and leaves your commits F1 and F2 with their original SHAs. Rebasing replays them as F1-prime and F2-prime with new SHAs, orphaning the originals and requiring a force-push.">
+          <defs>
+            <marker id="ar-rb-m" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-main"/>
+            </marker>
+            <marker id="ar-rb-g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="f-mute"/>
+            </marker>
+          </defs>
+
+          <text class="hd" x="8" y="20">git merge origin/main</text>
+          <text class="lbl" x="196" y="20">— adds a commit; F1 and F2 keep their SHAs</text>
+
+          <line class="ln s-main" x1="56" y1="122" x2="320" y2="122"/>
+          <circle class="node s-main" cx="76"  cy="122" r="6"/><text class="sha" x="70"  y="142">A</text>
+          <circle class="node s-main" cx="148" cy="122" r="6"/><text class="sha" x="142" y="142">B</text>
+          <circle class="node s-main" cx="264" cy="122" r="6"/><text class="sha" x="252" y="142">M3</text>
+
+          <path class="ln s-feat" d="M148 122 C 172 122, 184 66, 208 66"/>
+          <line class="ln s-feat" x1="208" y1="66" x2="470" y2="66"/>
+          <circle class="node s-feat" cx="232" cy="66" r="6"/><text class="sha" x="226" y="50">F1</text>
+          <circle class="node s-feat" cx="304" cy="66" r="6"/><text class="sha" x="298" y="50">F2</text>
+          <circle class="node s-feat" cx="404" cy="66" r="7"/><text class="sha" x="386" y="50">merge</text>
+          <path class="ln s-main" d="M264 122 C 330 122, 348 66, 396 66" marker-end="url(#ar-rb-m)"/>
+          <rect x="440" y="104" width="252" height="22" rx="3" fill="var(--good-soft)" stroke="var(--c-feature)"/>
+          <text class="tag" x="448" y="119" style="fill:var(--c-feature)">plain push — nothing was rewritten</text>
+
+          <line class="ln s-mute dash" x1="8" y1="172" x2="712" y2="172"/>
+
+          <text class="hd" x="8" y="202">git rebase origin/main</text>
+          <text class="lbl" x="200" y="202">— replays them; every SHA changes</text>
+
+          <circle class="node s-mute" cx="304" cy="232" r="6"/><text class="sha" x="298" y="222">F1</text>
+          <circle class="node s-mute" cx="376" cy="232" r="6"/><text class="sha" x="370" y="222">F2</text>
+          <line class="ln s-mute dash" x1="310" y1="232" x2="370" y2="232"/>
+          <text class="lbl" x="392" y="236">orphaned</text>
+
+          <line class="ln s-main" x1="56" y1="278" x2="264" y2="278"/>
+          <circle class="node s-main" cx="76"  cy="278" r="6"/><text class="sha" x="70"  y="296">A</text>
+          <circle class="node s-main" cx="148" cy="278" r="6"/><text class="sha" x="142" y="296">B</text>
+          <circle class="node s-main" cx="220" cy="278" r="6"/><text class="sha" x="208" y="296">M3</text>
+          <line class="ln s-feat" x1="264" y1="278" x2="440" y2="278"/>
+          <circle class="node s-feat" cx="304" cy="278" r="6"/><text class="sha" x="294" y="296">F1&#8242;</text>
+          <circle class="node s-feat" cx="376" cy="278" r="6"/><text class="sha" x="366" y="296">F2&#8242;</text>
+          <path class="ln s-mute dash" d="M304 240 L 304 268" marker-end="url(#ar-rb-g)"/>
+          <path class="ln s-mute dash" d="M376 240 L 376 268" marker-end="url(#ar-rb-g)"/>
+          <rect x="440" y="260" width="252" height="22" rx="3" fill="var(--bad-soft)" stroke="var(--c-hotfix)"/>
+          <text class="tag" x="448" y="275" style="fill:var(--c-hotfix)">force-push required to update the PR</text>
+        </svg>
+      </div>
+      <figcaption>Same end state in your working tree, different history. Rebase's tidier line is paid for by replacing commits you already published — which is the whole cost, and the whole argument.</figcaption>
+    </figure>
+
+    <h3>Scenario — "This branch is out-of-date with the base branch"</h3>
+    <p>GitHub blocks the merge because <strong>Require branches to be up to date</strong> is on and <code>main</code> moved after you branched. Merge <code>main</code> into your branch:</p>
+    <pre><code>git switch docs/conventions-section
+git fetch origin
+git merge origin/main      # resolve conflicts here if any
+git push                   # plain push — no force needed</code></pre>
+    <p>GitHub's <strong>Update branch</strong> button does exactly this. Prefer the terminal when a conflict is likely: you get your editor, and you can run the build before pushing.</p>
+
+    <div class="compare">
+      <div class="panel good">
+        <h4>✓ merge</h4>
+        <p>Your pushed commits keep their SHAs, so a plain <code>git push</code> updates the PR. Cost is one <code>Merge branch 'main' into…</code> commit on your branch.</p>
+      </div>
+      <div class="panel bad">
+        <h4>✗ rebase</h4>
+        <p>New SHAs for every commit, so the remote and your local copy disagree and only <code>--force-with-lease</code> reconciles them. Buys a linear branch history.</p>
+      </div>
+    </div>
+
+    <div class="rule-callout">
+      <span class="k">Why the rebase buys nothing here</span>
+      <p>We <strong>squash-merge</strong>. Every commit on the branch collapses into one on <code>main</code> regardless, so the tidy linear history rebase produced is thrown away seconds later. You would force-push over published commits to tidy something nobody will ever see. Merge, push, move on.</p>
+    </div>
+
+    <h3>Scenario — you merged a PR with the wrong title</h3>
+    <p>The title was copied into the commit message at merge time, so <strong>editing the PR title on GitHub now changes nothing.</strong> A message is part of what the SHA hashes: to change it you rewrite the commit and force-push over <code>main</code>.</p>
+    <p>Before reaching for that, price it. If the type does not release — <code>docs</code>, <code>chore</code>, <code>ci</code>, <code>test</code>, <code>refactor</code> — then release-please ignored it, no version moved, no changelog line was written, and no tag points at it. The record is untidy, not wrong.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Cost of amending</th><th>Detail</th></tr></thead>
+        <tbody>
+          <tr><td>Branch protection</td><td>Force-pushes to <code>main</code> are blocked, and admin bypass does not cover it. You must enable <strong>Allow force pushes</strong>, push, and remember to switch it off.</td></tr>
+          <tr><td>The merged PR</td><td>Its page ends up pointing at an orphaned commit that is no longer on <code>main</code>. Permanently slightly wrong.</td></tr>
+          <tr><td>The rule</td><td>"Never rewrite pushed history" is worth more as a reflex than as a case-by-case judgement. Cheap moments to keep it are the ones that build the habit.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Best approach:</strong> leave the commit. Correct the record forward — a line in <code>SETUP_JOURNAL.md</code> saying what that commit actually contained. No rewrite, and it lands in the file you will actually re-read.</p>
+    <p>If the type <em>does</em> release — a <code>feat</code> or <code>fix</code> whose subject is wrong, or worse a <code>feat</code> that should have been <code>fix</code> — that is a different call, because the version number and the changelog are now wrong too. Fix it before the Release PR is merged; after the tag exists, ship a correction rather than rewriting a released commit.</p>
+
+    <h3>When rebase is the right tool</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Situation</th><th>Reach for</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Local commits, never pushed</td><td><code>rebase</code> / <code>commit --amend</code></td><td>Nobody has them. Free. Tidy away <code>wip</code> before you push.</td></tr>
+          <tr><td>Pushed branch, behind <code>main</code>, squash-merge ahead</td><td><strong><code>merge</code></strong></td><td>The squash discards branch history anyway</td></tr>
+          <tr><td>Pushed branch, <code>--no-ff</code> merge ahead (release branches)</td><td><strong><code>merge</code></strong></td><td>That history is preserved and published — do not rewrite it</td></tr>
+          <tr><td>One fix from <code>main</code> onto a release branch</td><td><code>cherry-pick</code></td><td>You want the patch, not main's new features</td></tr>
+          <tr><td>Something already on <code>main</code> is wrong</td><td><code>revert</code></td><td>A new commit that undoes it — safe on a shared branch</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>And when you do force-push a branch that is genuinely yours, use <code>--force-with-lease</code>, never bare <code>--force</code>. It refuses if the remote moved since your last fetch, so you cannot clobber something you have not seen.</p>
+
+    <div class="rule-callout">
+      <span class="k">The rule</span>
+      <p>Rewrite freely what you have not pushed. Once it is pushed, add commits instead — merge, revert, or a note that corrects the record. The only exception worth making is a branch that is unambiguously yours alone, and even then with <code>--force-with-lease</code>.</p>
+    </div>
   </section>
 
   <!-- ================= 06 ================= -->
@@ -996,7 +1124,7 @@ chore(client): bump vite to 8.3.1</code></pre>
 
           <text class="lbl" x="4" y="414" style="fill:var(--c-main)">CI</text>
           <rect x="96" y="394" width="356" height="40" rx="5" fill="var(--accent-soft)" stroke="var(--c-main)"/>
-          <text class="hd" x="114" y="419">deploy.yml fires on the tag</text>
+          <text class="hd" x="114" y="419">release-please.yml calls deploy.yml</text>
           <line class="ln s-mute" x1="274" y1="434" x2="274" y2="450" marker-end="url(#ar-v)"/>
 
           <text class="lbl" x="4" y="478">PROD</text>
@@ -1117,10 +1245,10 @@ git describe --tags        # client-v0.5.0</code></pre>
 
           <path class="ln s-rel" d="M546 152 L 546 176" marker-end="url(#ar-t2)"/>
           <rect x="404" y="180" width="290" height="26" rx="4" fill="var(--surface)" stroke="var(--c-release)"/>
-          <text class="tag" x="416" y="197" style="fill:var(--c-release)">deploy.yml — on: push: tags: client-v*</text>
+          <text class="tag" x="416" y="197" style="fill:var(--c-release)">Deploy — workflow_dispatch (by hand)</text>
         </svg>
       </div>
-      <figcaption>The tag is pushed to <strong><code>origin</code></strong> — the same remote as your branches, not a branch of its own. Arriving in <code>refs/tags/</code> on GitHub is what fires the workflow.</figcaption>
+      <figcaption>The tag is pushed to <strong><code>origin</code></strong> — the same remote as your branches, not a branch of its own. It lands in <code>refs/tags/</code> as its own ref, which is why plain <code>git push</code> never sends it. The tag <em>records</em> what shipped; it does not start the deploy — see the next step.</figcaption>
     </figure>
 
     <ol class="steps">
@@ -1159,9 +1287,10 @@ git tag -l 'client-v*' --sort=-v:refname | head -3</code></pre>
 git push origin client-v0.5.1</code></pre>
         <p><strong>Where does it go?</strong> To <code>origin</code> — the same remote your branches go to. A tag isn't pushed <em>onto</em> a branch; it becomes <code>refs/tags/client-v0.5.1</code> on GitHub, pointing at the commit you just made. Plain <code>git push</code> would <em>not</em> have sent it — tags always need naming explicitly.</p>
       </li>
-      <li class="ci">
-        <h4>deploy.yml fires on the tag <span class="chip ci">automatic</span></h4>
-        <p>The workflow checks out <strong>the tagged commit</strong> — not <code>main</code>, not the branch tip — builds it, and deploys. That's why production gets exactly the code you tested and nothing else.</p>
+      <li>
+        <h4>Start the deploy by hand <span class="chip you">you</span></h4>
+        <pre><code>Actions → Deploy → Run workflow → ref: client-v0.5.1</code></pre>
+        <p><code>deploy.yml</code> has <strong>no tag trigger at all</strong> — it is a reusable workflow that <code>release-please.yml</code> calls after a Release PR merges. A hand-made hotfix tag therefore ships nothing by itself; you start the deploy from the Actions tab, passing the tag as the <code>ref</code>. The workflow checks out <strong>the tagged commit</strong> — not <code>main</code>, not the branch tip — so production gets exactly the code you tested and nothing else.</p>
       </li>
       <li>
         <h4>Verify in production <span class="chip wait">2 min</span></h4>
