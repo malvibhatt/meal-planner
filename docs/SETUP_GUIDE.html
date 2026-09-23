@@ -1,0 +1,1095 @@
+<title>Release Pipeline Playbook</title>
+<style>
+  /* ---------- tokens: light is the base, both dark paths override ---------- */
+  :root {
+    --ground:#F2F5F4; --surface:#FFFFFF; --surface-2:#E7ECEB; --rule:#D2DBD9;
+    --ink:#101E1C; --ink-2:#425451; --ink-3:#6C7E7B;
+    --accent:#0E6F6A; --accent-soft:#D9EAE8;
+    --do:#0D6484;      --do-soft:#DAEAF2;
+    --why:#474CA0;     --why-soft:#E2E3F4;
+    --watch:#9E3B26;   --watch-soft:#F5E1DB;
+    --code-bg:#0E1C1B; --code-ink:#D2E3E0; --code-rule:#24403D;
+    --shadow:0 1px 2px rgba(16,30,28,.05), 0 8px 24px -12px rgba(16,30,28,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#0B1413; --surface:#111C1B; --surface-2:#182523; --rule:#223331;
+      --ink:#E3EDEB; --ink-2:#A1B3B0; --ink-3:#788A87;
+      --accent:#4DB7AE; --accent-soft:#12312E;
+      --do:#57AFCB;      --do-soft:#0F2B35;
+      --why:#9297E2;     --why-soft:#1D1F3F;
+      --watch:#E08B73;   --watch-soft:#381E17;
+      --code-bg:#070F0E; --code-ink:#CBDDDA; --code-rule:#1C302E;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0B1413; --surface:#111C1B; --surface-2:#182523; --rule:#223331;
+    --ink:#E3EDEB; --ink-2:#A1B3B0; --ink-3:#788A87;
+    --accent:#4DB7AE; --accent-soft:#12312E;
+    --do:#57AFCB;      --do-soft:#0F2B35;
+    --why:#9297E2;     --why-soft:#1D1F3F;
+    --watch:#E08B73;   --watch-soft:#381E17;
+    --code-bg:#070F0E; --code-ink:#CBDDDA; --code-rule:#1C302E;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:60rem; margin:0 auto; padding:0 1.5rem 6rem; }
+
+  /* ---------- masthead ---------- */
+  header.mast { padding:4.5rem 0 2.5rem; border-bottom:1px solid var(--rule); }
+  .eyebrow {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 1rem;
+  }
+  h1 {
+    font-size:clamp(2.1rem,5vw,3.1rem); line-height:1.08; letter-spacing:-.025em;
+    margin:0 0 1rem; text-wrap:balance; font-weight:660;
+  }
+  .standfirst {
+    font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+    font-size:1.12rem; line-height:1.65; color:var(--ink-2);
+    max-width:42rem; margin:0;
+  }
+  .standfirst em { color:var(--ink); font-style:italic; }
+
+  /* ---------- index ---------- */
+  nav.index { margin:2.5rem 0 0; }
+  nav.index h2 {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:500; margin:0 0 1rem;
+  }
+  .idxgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(15rem,1fr)); gap:.4rem 2rem; }
+  .idxgrid a {
+    display:flex; gap:.7rem; align-items:baseline;
+    color:var(--ink-2); text-decoration:none; padding:.3rem 0;
+    border-bottom:1px solid transparent;
+  }
+  .idxgrid a:hover, .idxgrid a:focus-visible { color:var(--accent); border-bottom-color:var(--accent); }
+  .idxgrid .n {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.78rem; color:var(--ink-3); font-variant-numeric:tabular-nums;
+  }
+
+  /* ---------- parts ---------- */
+  section.part { margin-top:4rem; }
+  .parthead { display:flex; align-items:baseline; gap:1rem; margin-bottom:.4rem; }
+  .parthead .tag {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.7rem; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--surface); background:var(--accent);
+    padding:.25rem .5rem; border-radius:3px; white-space:nowrap;
+  }
+  .parthead h2 { font-size:1.6rem; letter-spacing:-.02em; margin:0; font-weight:640; }
+  .partnote {
+    font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+    color:var(--ink-2); margin:.1rem 0 1.8rem; max-width:44rem; font-size:1.02rem;
+  }
+
+  /* ---------- the pipeline spine ---------- */
+  .steps { position:relative; display:flex; flex-direction:column; gap:1.1rem; }
+  .steps::before {
+    content:""; position:absolute; left:1.12rem; top:1.6rem; bottom:1.6rem;
+    width:2px; background:var(--rule); border-radius:2px;
+  }
+  article.step { position:relative; display:flex; gap:1.3rem; align-items:flex-start; }
+  .num {
+    flex:0 0 auto; width:2.25rem; height:2.25rem; border-radius:50%;
+    display:grid; place-items:center; position:relative; z-index:1;
+    background:var(--surface); border:2px solid var(--accent); color:var(--accent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.8rem; font-variant-numeric:tabular-nums; font-weight:600;
+  }
+  .card {
+    flex:1 1 auto; min-width:0;
+    background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+    padding:1.35rem 1.5rem 1.15rem; box-shadow:var(--shadow);
+  }
+  .card > h3 {
+    margin:0 0 .2rem; font-size:1.12rem; letter-spacing:-.012em; font-weight:640;
+    text-wrap:balance;
+  }
+  .where {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.74rem; color:var(--ink-3); margin:0 0 1rem;
+  }
+
+  /* ---------- do / why / watch blocks ---------- */
+  .block { border-left:3px solid var(--rule); padding:.15rem 0 .15rem .95rem; margin:1rem 0 0; }
+  .block:first-of-type { margin-top:0; }
+  .lbl {
+    display:inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.66rem; letter-spacing:.13em; text-transform:uppercase;
+    padding:.16rem .44rem; border-radius:3px; margin-bottom:.5rem; font-weight:600;
+  }
+  .block.do    { border-left-color:var(--do); }
+  .block.do    .lbl { color:var(--do); background:var(--do-soft); }
+  .block.why   { border-left-color:var(--why); }
+  .block.why   .lbl { color:var(--why); background:var(--why-soft); }
+  .block.watch { border-left-color:var(--watch); }
+  .block.watch .lbl { color:var(--watch); background:var(--watch-soft); }
+
+  /* action items read like instructions; reasoning reads like prose */
+  .block.do ul, .block.watch ul { margin:0; padding-left:1.1rem; }
+  .block.do li, .block.watch li { margin:.34rem 0; }
+  .block.do p, .block.watch p { margin:.34rem 0; }
+  .block.why p {
+    font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+    font-size:1.02rem; line-height:1.62; color:var(--ink-2); margin:.3rem 0;
+    max-width:46rem;
+  }
+  .block.why strong, .block.watch strong { color:var(--ink); }
+
+  /* ---------- code ---------- */
+  pre {
+    background:var(--code-bg); color:var(--code-ink);
+    border:1px solid var(--code-rule); border-radius:7px;
+    padding:.8rem 1rem; margin:.7rem 0; overflow-x:auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.82rem; line-height:1.55;
+  }
+  pre code { background:none; padding:0; color:inherit; border:none; }
+  pre .c { color:var(--ink-3); }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.86em; background:var(--surface-2); color:var(--ink);
+    padding:.1em .34em; border-radius:4px;
+  }
+
+  /* ---------- tables ---------- */
+  .tablewrap { overflow-x:auto; margin:1rem 0; }
+  table { border-collapse:collapse; width:100%; font-size:.9rem; min-width:34rem; }
+  th, td { text-align:left; padding:.6rem .8rem; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.68rem; letter-spacing:.11em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:600; border-bottom:1.5px solid var(--rule);
+  }
+  td.num-c { font-variant-numeric:tabular-nums; }
+  tbody tr:last-child td { border-bottom:none; }
+
+  /* ---------- reference panel ---------- */
+  .panel {
+    background:var(--surface); border:1px solid var(--rule);
+    border-radius:10px; padding:1.4rem 1.6rem; box-shadow:var(--shadow);
+  }
+  .panel h3 { margin:0 0 .3rem; font-size:1.1rem; letter-spacing:-.012em; font-weight:640; }
+  .panel > p:first-of-type { margin-top:0; }
+  .panel p { color:var(--ink-2); }
+
+  .callout {
+    border-left:3px solid var(--accent); background:var(--accent-soft);
+    padding:.9rem 1.1rem; border-radius:0 7px 7px 0; margin:1.2rem 0;
+  }
+  .callout p { margin:.3rem 0; color:var(--ink); }
+  .callout .lbl { color:var(--accent); background:transparent; padding-left:0; }
+
+  footer.end {
+    margin-top:4rem; padding-top:1.6rem; border-top:1px solid var(--rule);
+    color:var(--ink-3); font-size:.86rem;
+  }
+  a { color:var(--accent); }
+  a:focus-visible, .idxgrid a:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:2px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .idxgrid a { transition:color .15s ease, border-color .15s ease; }
+  }
+  @media (max-width: 640px) {
+    .steps::before { display:none; }
+    article.step { gap:.8rem; }
+    .card { padding:1.1rem 1.1rem .95rem; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Reusable setup · React + Vite monorepo</p>
+  <h1>Release Pipeline Playbook</h1>
+  <p class="standfirst">Everything it takes to get a new project from <code>git init</code> to a production URL that
+  only changes when you decide it should. Every step carries three things: <em>what to do</em>, <em>why it works that
+  way</em>, and <em>what breaks</em> — because in this setup almost every failure is silent.</p>
+
+  <nav class="index">
+    <h2>Contents</h2>
+    <div class="idxgrid">
+      <a href="#p-a"><span class="n">A</span><span>The git loop you repeat</span></a>
+      <a href="#p-b"><span class="n">B</span><span>Scaffold a new project</span></a>
+      <a href="#p-c"><span class="n">C</span><span>Repo hygiene before CI</span></a>
+      <a href="#p-d"><span class="n">D</span><span>CI and GitHub settings</span></a>
+      <a href="#p-e"><span class="n">E</span><span>Hosting on Vercel</span></a>
+      <a href="#p-f"><span class="n">F</span><span>Automated releases</span></a>
+      <a href="#p-g"><span class="n">G</span><span>Ship it, and prove it</span></a>
+      <a href="#ref"><span class="n">R</span><span>Reference tables</span></a>
+    </div>
+  </nav>
+</header>
+
+<!-- ============================ PART A ============================ -->
+<section class="part" id="p-a">
+  <div class="parthead"><span class="tag">Part A</span><h2>The git loop you repeat</h2></div>
+  <p class="partnote">Learn this first — every other part of the playbook is delivered through it. One ticket, one
+  branch, one PR, one squash commit.</p>
+
+  <div class="steps">
+
+    <article class="step">
+      <div class="num">01</div>
+      <div class="card">
+        <h3>Start from a fresh <code>main</code></h3>
+        <p class="where">your terminal, before any work</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code>git switch main
+git pull --prune</code></pre>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Branching from a stale <code>main</code> gives you a merge conflict later for no reason. <code>--prune</code>
+          is the half people skip: it deletes the local <code>origin/xxx</code> pointers whose branches are already gone
+          from GitHub. Those pointers are just a cached copy of the remote, and they linger forever otherwise.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p><code>git status</code> saying "up to date with origin/main" proves nothing before a fetch — it is comparing
+          against that same stale cache. Pull first, then believe it.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">02</div>
+      <div class="card">
+        <h3>Cut the branch locally, then publish it</h3>
+        <p class="where">never create the branch in the GitHub UI first</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code>git switch -c client/mp-02-route-tree   <span class="c"># creates it locally + switches</span>
+git push -u origin client/mp-02-route-tree</code></pre>
+          <p>Naming: <code>client/…</code> or <code>server/…</code> for one half, no prefix when it spans both,
+          <code>docs/…</code> for docs, <code>ci/…</code> for pipeline work.</p>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>The branch is local until you push; <code>-u</code> creates it on the remote <em>and</em> records the
+          upstream, so plain <code>git push</code> and <code>git pull</code> know where to go from then on. The branch
+          name is also where the ticket id lives, since it is no longer allowed in the commit subject.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>Uncommitted changes <strong>follow you across branches</strong>. <code>git switch -c</code> does not leave
+          them behind, so anything dirty in your tree lands in the wrong PR. Run <code>git status</code> before cutting,
+          and commit or stash first.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">03</div>
+      <div class="card">
+        <h3>Commit in conventional format</h3>
+        <p class="where">this format is the input to your version numbers</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code>git commit -m "feat(client): add route tree with nested layouts"
+git commit -m "fix(server): set sameSite on the refresh cookie"</code></pre>
+          <p>Subject starts <strong>lowercase</strong>, imperative mood, no trailing period, under ~72 chars.
+          No ticket id.</p>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p><code>feat</code> bumps the minor version, <code>fix</code> and <code>perf</code> bump the patch, and
+          <code>chore</code>/<code>docs</code>/<code>ci</code>/<code>test</code> release nothing. A tool reads these
+          strings literally and decides your version number from them. A sloppy message is a wrong version.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>Check the author before you push: <code>git log -1 --format="%an &lt;%ae&gt;"</code>. A commit made under the
+          wrong email is trivially fixed while unpushed (<code>git commit --amend --reset-author --no-edit</code>) and
+          permanent afterwards.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">04</div>
+      <div class="card">
+        <h3>Open the PR and read your own diff</h3>
+        <p class="where">github.com — the PR title is the part that matters</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li>Title the PR in the same conventional format as the commit — this becomes the squash commit message.</li>
+            <li>Read the <strong>Files changed</strong> tab before merging.</li>
+            <li>Locally, the same diff is <code>git diff main...HEAD</code>.</li>
+          </ul>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Three dots compares against the point where your branch <em>split off</em>, so <code>main</code> moving
+          ahead never pollutes the view. Two dots compares the two tips and shows main's new commits inverted, as though
+          you deleted them. Three dots is what GitHub shows.</p>
+          <p>Reviewing your own diff costs thirty seconds and catches stray <code>console.log</code>s, a leftover
+          <code>any</code>, and files you never meant to commit.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p><code>git log</code> is the opposite convention: <code>git log main..HEAD</code> with <strong>two</strong>
+          dots lists the commits on your branch. Easy to mix up.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">05</div>
+      <div class="card">
+        <h3>Squash merge, then clean up in three places</h3>
+        <p class="where">the cleanup people get wrong</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li>Click <strong>Squash and merge</strong>, then <strong>Delete branch</strong> on the PR page.</li>
+          </ul>
+<pre><code>git switch main
+git pull --prune                       <span class="c"># fast-forwards + drops the stale origin/ ref</span>
+git branch -D client/mp-02-route-tree  <span class="c"># capital D, see below</span></code></pre>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>A branch exists in three places: locally, as a cached <code>origin/…</code> pointer on your machine, and on
+          GitHub. Deleting it on GitHub clears only the third. <code>--prune</code> clears the second, and
+          <code>git branch -D</code> the first.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p><code>git branch -d</code> will refuse with <em>"not fully merged"</em>, and that is expected, not a
+          problem. Squash merging replays your work as one brand-new commit with a different SHA, so your original
+          commits genuinely are not in <code>main</code>. Every squash-merged branch needs <code>-D</code>. Turn on
+          <strong>Automatically delete head branches</strong> in repo settings to remove one of the three steps.</p>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================ PART B ============================ -->
+<section class="part" id="p-b">
+  <div class="parthead"><span class="tag">Part B</span><h2>Scaffold a new project</h2></div>
+  <p class="partnote">Day one. Get a building app and a remote before worrying about pipelines.</p>
+
+  <div class="steps">
+
+    <article class="step">
+      <div class="num">06</div>
+      <div class="card">
+        <h3>Create the client in a subfolder</h3>
+        <p class="where">repo root — leave room for <code>server/</code> beside it</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code>npm create vite@latest client -- --template react-ts
+cd client &amp;&amp; npm i react-router-dom axios antd dayjs</code></pre>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>One repo with <code>client/</code> and <code>server/</code> as siblings, not two repos. A split costs you
+          two remotes and loses atomic commits when an API shape and the hook consuming it change together. Both Vercel
+          and Render support a subdirectory as the project root, which is what makes the monorepo a non-issue.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>Decide this before the first commit. Restructuring later means rewriting every path in every config file
+          you are about to write.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">07</div>
+      <div class="card">
+        <h3>Set up the <code>@/</code> path alias</h3>
+        <p class="where"><code>vite.config.ts</code> and <code>tsconfig.app.json</code></p>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code><span class="c">// vite.config.ts</span>
+resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } }
+
+<span class="c">// tsconfig.app.json → compilerOptions</span>
+"paths": { "@/*": ["./src/*"] }</code></pre>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>They are two separate systems: TypeScript only type-checks, the bundler only resolves, and neither implies
+          the other. Vite 8's Rolldown does read tsconfig <code>paths</code> natively — but keep
+          <code>resolve.alias</code> anyway, because PostCSS never sees tsconfig, so <code>@import "@/x.css"</code> dies
+          with <code>ENOENT</code> without it. The alias covers what TS never touches: CSS, <code>url()</code>,
+          <code>.js</code>.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>A green build proves nothing until one real file actually imports <code>@/something</code>. Configure it,
+          then use it, then trust it. And never write a bare <code>src/app/App</code> — with no <code>./</code> prefix
+          that is a bare specifier and the resolver looks in <code>node_modules/</code>, exactly as it would for
+          <code>react</code>.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">08</div>
+      <div class="card">
+        <h3>First commit and remote</h3>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code>git remote add origin https://github.com/&lt;you&gt;/&lt;repo&gt;.git
+git push -u origin main</code></pre>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Everything downstream — CI, release-please, Vercel — is triggered by pushes to this remote. Nothing can be
+          tested until it exists.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>Your <code>.gitignore</code> must cover <code>node_modules</code>, <code>dist</code> and <code>.env</code>
+          before this push, not after. Once a secret is in history, removing it means rewriting history.</p>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================ PART C ============================ -->
+<section class="part" id="p-c">
+  <div class="parthead"><span class="tag">Part C</span><h2>Repo hygiene before CI</h2></div>
+  <p class="partnote">Five small changes. Each one prevents a specific failure later, and all are cheaper to make now
+  than to retrofit.</p>
+
+  <div class="steps">
+
+    <article class="step">
+      <div class="num">09</div>
+      <div class="card">
+        <h3>Make lint, Node and env explicit</h3>
+        <p class="where"><code>client/package.json</code>, <code>client/.nvmrc</code>, <code>client/.env.example</code></p>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li><code>"lint": "eslint . --max-warnings 0"</code></li>
+            <li><code>"engines": { "node": "&gt;=22" }</code></li>
+            <li><code>.nvmrc</code> containing <code>22</code></li>
+            <li><code>.env.example</code> documenting each <code>VITE_*</code> variable</li>
+            <li>Set <code>version</code> to <code>0.1.0</code> — it must match the release manifest you write in step 19</li>
+          </ul>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>ESLint <strong>exits 0 even when it prints warnings</strong>, so without <code>--max-warnings 0</code> your
+          CI goes green on a warning-filled PR. <code>.nvmrc</code> gives CI a single source of truth via
+          <code>node-version-file</code>, and <code>engines.node</code> is what Vercel reads to pick its build image —
+          so your laptop, CI and production all agree.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>Tightening lint is a real behaviour change. The first PR that trips <code>react-hooks/exhaustive-deps</code>
+          will fail CI on what used to be silent. That is the point, but it should not surprise you.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">10</div>
+      <div class="card">
+        <h3>Add the SPA rewrite <em>before</em> the first deploy</h3>
+        <p class="where"><code>client/vercel.json</code></p>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code>{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}</code></pre>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Visit <code>/recipes/123</code> directly and the host looks for a file at that path, finds none, and returns
+          404 — your router never gets to run. This says "serve <code>index.html</code> for anything unmatched." It does
+          not break your assets: Vercel checks the filesystem first and only falls through to rewrites when nothing
+          matches.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>Without this, every deep link and every page refresh 404s in production while working perfectly in
+          <code>npm run dev</code>. It is the classic "works locally" deployment bug.</p>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================ PART D ============================ -->
+<section class="part" id="p-d">
+  <div class="parthead"><span class="tag">Part D</span><h2>CI and GitHub settings</h2></div>
+  <p class="partnote">The order here matters: the workflow must run once before GitHub will let you require it.</p>
+
+  <div class="steps">
+
+    <article class="step">
+      <div class="num">11</div>
+      <div class="card">
+        <h3>One CI workflow with a change-detection job</h3>
+        <p class="where"><code>.github/workflows/ci.yml</code></p>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <p>A <code>changes</code> job that always runs, using <code>dorny/paths-filter</code>, plus build jobs gated
+          on its output:</p>
+<pre><code>changes:
+  outputs:
+    client: ${{ steps.filter.outputs.client }}
+client:
+  needs: changes
+  if: ${{ needs.changes.outputs.client == 'true' }}</code></pre>
+          <p>Steps: <code>npm ci</code> → <code>npm run lint</code> → <code>npx tsc -b</code> → <code>npm run build</code>.
+          Write the <code>server</code> job now; it stays inert until <code>server/</code> exists.</p>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>You want a docs typo to skip the React build. The obvious fix — a workflow-level <code>paths:</code> filter —
+          is a trap: <strong>a skipped workflow reports no status at all</strong>, and in step 13 you will require that
+          status. A check that never reports is pending forever, so docs-only PRs become unmergeable.</p>
+          <p>Detect-then-gate avoids it. The workflow always runs, so a check always appears, and a skipped
+          <em>job</em> is counted as a pass.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>Use <code>fetch-depth: 0</code> in the <code>changes</code> job — on push events the filter diffs against
+          the previous commit, which a shallow clone cannot do.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">12</div>
+      <div class="card">
+        <h3>Three repo settings</h3>
+        <p class="where">GitHub → Settings</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li><strong>General → Pull Requests:</strong> allow <em>squash merging</em> only; set the squash message to
+            <em>"Pull request title and description"</em>; tick <em>Automatically delete head branches</em>.</li>
+            <li><strong>Actions → General → Workflow permissions:</strong> tick <em>Allow GitHub Actions to create and
+            approve pull requests</em>. Leave the radio on read-only.</li>
+          </ul>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Squash-only guarantees the PR title becomes the commit message, which is what the release tool reads.
+          Left on GitHub's default message, the commit body is a noisy bullet list of your branch commits. And each
+          workflow declares the permissions it needs, which is safer than granting every workflow write access.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>The Actions checkbox is the classic hour-waster: without it, release-please fails with a permissions error
+          that never says what is actually wrong.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">13</div>
+      <div class="card">
+        <h3>Protect <code>main</code> — after CI has run once</h3>
+        <p class="where">Settings → Branches (or Rules → Rulesets)</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li>Require a pull request before merging.</li>
+            <li>Require status checks: <code>changes</code>, <code>client</code>, and the PR-title job.</li>
+            <li>Require branches to be up to date.</li>
+            <li><strong>Do not</strong> require approvals.</li>
+          </ul>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Require <code>changes</code> as well as <code>client</code>. If <code>changes</code> fails, the
+          <code>client</code> job reports as <em>skipped</em> — which counts as a pass — and a broken PR sails through.
+          Requiring both closes that hole.</p>
+          <p>No approvals, because GitHub will not let you approve your own PR. Requiring one locks you out of your own
+          repository.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>The checks dropdown only lists checks GitHub has <strong>seen run recently</strong>. Open a PR and let CI
+          finish first, or the list is empty. On a private repo this whole screen may also need a paid plan — if so,
+          make the repo public or skip it; nothing downstream depends on it.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">14</div>
+      <div class="card">
+        <h3>Lint the PR title</h3>
+        <p class="where"><code>.github/workflows/pr-title.yml</code> · <code>amannn/action-semantic-pull-request</code></p>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li>Trigger on <code>[opened, edited, reopened, synchronize]</code>.</li>
+            <li>Allowlist the conventional types and your scopes (<code>client</code>, <code>server</code>);
+            <code>requireScope: false</code>.</li>
+            <li><code>subjectPattern: ^(?![A-Z]).+[^.]$</code> — lowercase first letter, no trailing period.</li>
+          </ul>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Because you squash-merge, the PR title is the <em>only</em> commit message that ever reaches
+          <code>main</code>, and therefore the entire input to your version calculation. A PR titled "shopping list
+          stuff" releases nothing, silently — and <code>main</code>'s history cannot be reworded afterwards.</p>
+          <p>Lighter than husky + commitlint, which checks local commits that squashing throws away anyway.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p><code>edited</code> is load-bearing: without it you fix a bad title and the check stays red with no way to
+          re-run. And a lowercase-first rule bans <code>MP-02 …</code> subjects — decide once whether ticket ids live in
+          the subject or the branch name, and make your docs agree.</p>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================ PART E ============================ -->
+<section class="part" id="p-e">
+  <div class="parthead"><span class="tag">Part E</span><h2>Hosting on Vercel</h2></div>
+  <p class="partnote">The goal is contradictory on purpose: let Vercel watch every branch for preview URLs, while
+  never letting it promote anything to production on its own.</p>
+
+  <div class="steps">
+
+    <article class="step">
+      <div class="num">15</div>
+      <div class="card">
+        <h3>Import the repo, root directory <code>client</code></h3>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li>Add New → Project → import the repo.</li>
+            <li><strong>Root Directory → <code>client</code></strong>. Framework preset auto-detects Vite.</li>
+            <li>Leave "include source files outside the Root Directory" off.</li>
+          </ul>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Root Directory is the single setting that makes a monorepo a non-issue — Vercel treats
+          <code>client/</code> as the entire project and never looks at <code>docs/</code> or <code>server/</code>.
+          When the server arrives it becomes a <em>second</em> Vercel/Render project pointing at the same repo with a
+          different root.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>On import, Vercel immediately deploys your default branch to production. That is unavoidable and harmless —
+          and it usefully proves the build works from a clean checkout. Step 16 is what stops it happening again.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">16</div>
+      <div class="card">
+        <h3>Point the production branch at a branch nobody pushes to</h3>
+        <p class="where">Settings → Git → Production Branch, or Settings → Environments → Production → Branch Tracking</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code>git push origin main:production   <span class="c"># create it remote-only, no local copy</span></code></pre>
+          <p>Then set the production branch to <code>production</code> and save.</p>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Vercel now watches everything and still builds a preview for every PR — the single best reason to use it —
+          but it can never find its production branch, so nothing it builds on its own goes live. Production changes
+          only when your deploy workflow runs <code>vercel --prod</code> against a released tag.</p>
+          <p>The <code>source:destination</code> push form creates the remote branch without a local one, so you cannot
+          accidentally switch to it and commit.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>The newer UI validates that the branch exists, so create it first or the save fails. It will then offer to
+          "redeploy from production" and find nothing to redeploy — Vercel deduplicates by commit, and that commit was
+          already built. Skip it. Never delete the <code>production</code> branch later; branch tracking breaks and
+          Vercel may fall back to <code>main</code>.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">17</div>
+      <div class="card">
+        <h3>Skip builds when nothing in the root directory changed</h3>
+        <p class="where">Settings → Git → Ignored Build Step → Custom</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code>git diff --quiet HEAD^ HEAD ./</code></pre>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Exit 0 means "no changes here" and the build is skipped; exit 1 means build. It is the Vercel-side
+          equivalent of the <code>changes</code> job in CI, so a docs-only PR stops costing you a React build on both
+          systems.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>The exit-code logic reads backwards from what you expect. Zero means <em>skip</em>.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">18</div>
+      <div class="card">
+        <h3>Create the Vercel token — scoped to the <em>account</em></h3>
+        <p class="where">Vercel → Account Settings → Tokens</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li>Name it after its consumer: <code>github-actions-deploy</code>.</li>
+            <li><strong>Scope: your account/team</strong> — not a single project.</li>
+            <li>Expiry: 1 year. Write the date in your journal.</li>
+            <li>Get the two IDs with <code>npx vercel link</code>, which writes <code>.vercel/repo.json</code>
+            containing <code>orgId</code> and the project <code>id</code>.</li>
+          </ul>
+          <p>Store all three as <strong>repository secrets</strong> (GitHub → Settings → Secrets and variables →
+          Actions): <code>VERCEL_TOKEN</code>, <code>VERCEL_ORG_ID</code>, <code>VERCEL_PROJECT_ID</code>.</p>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>The Vercel CLI resolves your identity via <code>/v2/user</code> before doing anything else. An
+          account-scoped token has a user; a project-scoped one does not.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p><strong>A project-scoped token fails in a deeply misleading way.</strong> It can call project APIs
+          perfectly well, but <code>whoami</code> returns <em>"User not found"</em> and <code>vercel pull</code> reports
+          <em>"Could not retrieve Project Settings. To link your Project, remove the .vercel directory"</em> — advice
+          that is irrelevant, because CI has no <code>.vercel</code> directory at all.</p>
+          <p>Rule worth keeping: <strong>test a credential in isolation before testing what it accesses.</strong></p>
+<pre><code>read -rs TOKEN            <span class="c"># paste, hidden, stays out of shell history</span>
+npx vercel@latest whoami --token="$TOKEN"   <span class="c"># must print your username</span></code></pre>
+          <p>Also note <code>vercel link</code> appends to your <code>.gitignore</code> without telling you — including
+          a broad <code>.env*</code> that, by last-match-wins, silently overrides an earlier
+          <code>!.env.example</code>. Check with <code>git check-ignore -v path/.env.example</code>.</p>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================ PART F ============================ -->
+<section class="part" id="p-f">
+  <div class="parthead"><span class="tag">Part F</span><h2>Automated releases</h2></div>
+  <p class="partnote">release-please reads your commits and maintains one permanently-open Release PR. Merging that PR
+  is the release. Everything else is automatic.</p>
+
+  <div class="steps">
+
+    <article class="step">
+      <div class="num">19</div>
+      <div class="card">
+        <h3>Config and manifest</h3>
+        <p class="where"><code>release-please-config.json</code> + <code>.release-please-manifest.json</code>, repo root</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code><span class="c">// .release-please-manifest.json</span>
+{ "client": "0.1.0" }
+
+<span class="c">// release-please-config.json</span>
+{
+  "separate-pull-requests": true,
+  "pull-request-title-pattern": "chore: release${component} ${version}",
+  "bootstrap-sha": "&lt;current main HEAD&gt;",
+  "bump-minor-pre-major": true,
+  "packages": {
+    "client": {
+      "release-type": "node",
+      "component": "client",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}</code></pre>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p><strong>The manifest, not your git tags, is the version.</strong> It is an ordinary tracked file that only
+          release-please writes, and only inside a Release PR. Nearly every confusing release-please behaviour traces
+          back to this file disagreeing with reality.</p>
+          <p><code>bootstrap-sha</code> says "history starts here", so non-conventional commits from before setup are
+          never parsed. <code>include-component-in-tag</code> produces <code>client-v0.2.0</code> rather than a bare
+          <code>v0.2.0</code>, so client and server can version independently.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>Without <code>bump-minor-pre-major</code>, one <code>feat!</code> jumps you from <code>0.1.0</code> straight
+          to <code>1.0.0</code> — declaring your API stable by accident, with a tag you cannot take back. With it on:
+          <code>fix</code> → 0.1.1, <code>feat</code> → 0.2.0, <code>feat!</code> → 0.2.0.</p>
+          <p>The <code>${component}</code> token carries a <strong>leading space</strong> by design, so
+          <code>chore(${component}):</code> renders as <code>chore( client):</code>. Keep it out of the parentheses.</p>
+          <p>Only declare packages whose directory exists. Add <code>server</code> in the same PR that creates
+          <code>server/</code>.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">20</div>
+      <div class="card">
+        <h3>Create the release PAT — and understand why it is needed</h3>
+        <p class="where">GitHub → Settings → Developer settings → Fine-grained tokens</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li>Name: <code>release-please-&lt;repo&gt;</code>. Expiry 1 year, recorded in your journal.</li>
+            <li>Repository access: <strong>only</strong> that one repo.</li>
+            <li>Permissions: <strong>Contents → read and write</strong>, <strong>Pull requests → read and write</strong>.
+            Nothing else. (Metadata read-only is added automatically.)</li>
+            <li>Store as repository secret <code>RELEASE_PLEASE_TOKEN</code> and reference it as the action's
+            <code>token:</code>.</li>
+          </ul>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p><strong>Anything a workflow does with <code>GITHUB_TOKEN</code> is invisible to other workflows.</strong>
+          GitHub blocks it to stop workflows recursing. Two consequences, both silent: a tag created by release-please
+          triggers no deploy, and a Release PR it opens receives no CI checks — so your required checks stay pending
+          forever and branch protection refuses the merge. Nothing could ever ship.</p>
+          <p>A PAT makes the Release PR an ordinary PR that CI runs on. Fine-grained, not classic: a classic token's
+          narrowest useful scope grants access to every repo you own.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>Create the secret <strong>before</strong> merging the PR that adds the workflow — it fires on that very
+          merge.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">21</div>
+      <div class="card">
+        <h3>Wire the deploy as a called workflow, not a tag trigger</h3>
+        <p class="where"><code>.github/workflows/release-please.yml</code> + <code>deploy.yml</code></p>
+
+        <div class="block do"><span class="lbl">Do</span>
+<pre><code><span class="c"># release-please.yml — on: push: branches: [main]</span>
+deploy:
+  needs: release
+  if: ${{ needs.release.outputs.released == 'true' }}
+  uses: ./.github/workflows/deploy.yml
+  with:  { ref: ${{ needs.release.outputs.tag }} }
+  secrets: inherit
+
+<span class="c"># deploy.yml — NO tag trigger</span>
+on:
+  workflow_call:     { inputs: { ref: { required: true, type: string } } }
+  workflow_dispatch: { inputs: { ref: { required: true, type: string } } }</code></pre>
+          <p>Read the outputs as <code>steps.release.outputs['client--release_created']</code> — manifest mode prefixes
+          every output with the package path.</p>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>That <code>if:</code> is the entire "no deploy on every push to main" rule. The output is
+          <code>true</code> only on the push that merged a Release PR; every ordinary merge leaves the job skipped.</p>
+          <p>Checking out <code>inputs.ref</code> — the tag, not a branch tip — means production gets exactly the
+          blessed commit. Explicit chaining also survives the PAT being rotated away, which a tag trigger would not.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p><code>secrets: inherit</code> is required — a called workflow receives no secrets otherwise, and your token
+          arrives empty.</p>
+          <p>Run every <code>vercel</code> command from the <strong>repo root</strong>, never from <code>client/</code>.
+          The project's Root Directory is already <code>client</code>, and <code>vercel build</code> applies it relative
+          to the working directory — so running it inside <code>client/</code> resolves to <code>client/client/</code>
+          and fails with <code>Cannot resolve entry module index.html</code>. For the same reason you need no separate
+          <code>npm ci</code>: <code>vercel build</code> runs the project's own install command.</p>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================ PART G ============================ -->
+<section class="part" id="p-g">
+  <div class="parthead"><span class="tag">Part G</span><h2>Ship it, and prove it</h2></div>
+  <p class="partnote">Do this before writing any real feature code, while the only thing that can be broken is the
+  plumbing.</p>
+
+  <div class="steps">
+
+    <article class="step">
+      <div class="num">22</div>
+      <div class="card">
+        <h3>Dry-run the whole chain</h3>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li>Open a small, genuine <code>feat(client):</code> PR. Merge it.</li>
+            <li>Watch the Release PR <em>"chore: release client 0.2.0"</em> appear. Nothing has shipped yet.</li>
+            <li>Merge the Release PR → tag, GitHub Release, changelog, then the deploy.</li>
+            <li>Open the production URL and confirm the change is live.</li>
+          </ul>
+          <p>Make the change something that <em>displays the version</em> — then "did the release work" is a number you
+          can read on the page rather than a dashboard you have to interpret.</p>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>Two human decisions in the whole chain: merge the feature PR, merge the Release PR. The Release PR keeps
+          rewriting itself as more features land, so the release date is simply the day you press merge on it.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>A failed <code>deploy</code> does <strong>not</strong> roll back the release — the tag, the Release and the
+          version bump are already real. Release and deploy are separate events, and only one failed. Fix the pipeline,
+          then redeploy the same tag; no new version is needed.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="num">23</div>
+      <div class="card">
+        <h3>Re-deploy or roll back a tag by hand</h3>
+        <p class="where">Actions → Deploy → Run workflow</p>
+
+        <div class="block do"><span class="lbl">Do</span>
+          <ul>
+            <li><strong>"Use workflow from"</strong> dropdown → <code>main</code></li>
+            <li><strong>"Tag or SHA to deploy"</strong> input → <code>client-v0.2.0</code></li>
+          </ul>
+        </div>
+
+        <div class="block why"><span class="lbl">Why</span>
+          <p>The dropdown picks the <em>recipe</em> — which version of <code>deploy.yml</code> runs. The input picks the
+          <em>ingredients</em> — which code gets built. So a fixed pipeline on <code>main</code> can ship an old,
+          unchanged tag. Nothing from <code>main</code> reaches production.</p>
+        </div>
+
+        <div class="block watch"><span class="lbl">Watch out</span>
+          <p>Do not "re-run all jobs" on a failed release run: release-please finds nothing left to release, returns
+          <code>release_created: false</code>, the deploy skips, and the run goes <strong>green having deployed
+          nothing</strong>. And re-runs replay the workflow file <em>as it was</em>, so a fix on <code>main</code> is not
+          picked up. A fresh dispatch is always the safer move.</p>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================ REFERENCE ============================ -->
+<section class="part" id="ref">
+  <div class="parthead"><span class="tag">Reference</span><h2>Tables to come back to</h2></div>
+
+  <div class="panel" style="margin-bottom:1.1rem;">
+    <h3>Credentials — what you create and where each one lives</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Secret name</th><th>Created at</th><th>Scope</th><th>Used by</th><th>If it expires</th></tr></thead>
+        <tbody>
+          <tr><td><code>VERCEL_TOKEN</code></td><td>Vercel → Account Settings → Tokens</td><td>Account/team — <strong>never</strong> a single project</td><td><code>deploy.yml</code></td><td>Deploy fails loudly; production untouched</td></tr>
+          <tr><td><code>VERCEL_ORG_ID</code></td><td><code>.vercel/repo.json</code> after <code>vercel link</code></td><td><code>team_…</code></td><td><code>deploy.yml</code></td><td>n/a — an identifier</td></tr>
+          <tr><td><code>VERCEL_PROJECT_ID</code></td><td>same file</td><td><code>prj_…</code></td><td><code>deploy.yml</code></td><td>n/a — an identifier</td></tr>
+          <tr><td><code>RELEASE_PLEASE_TOKEN</code></td><td>GitHub → Developer settings → Fine-grained tokens</td><td>One repo · Contents RW + Pull requests RW</td><td><code>release-please.yml</code></td><td>No Release PRs open; releases stop</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-bottom:0;">All four are stored in the same place: <strong>repo → Settings → Secrets and variables →
+    Actions</strong>. Use <em>Secrets</em>, not <em>Variables</em> — variables are readable in logs. Names are matched
+    literally, so a typo surfaces as an empty value rather than an error.</p>
+  </div>
+
+  <div class="panel" style="margin-bottom:1.1rem;">
+    <h3>The five config files</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>File</th><th>What it does</th><th>When it runs</th></tr></thead>
+        <tbody>
+          <tr><td><code>.github/workflows/ci.yml</code></td><td>Lint, typecheck, build — path-filtered</td><td>every PR + push to main</td></tr>
+          <tr><td><code>.github/workflows/pr-title.yml</code></td><td>Rejects non-conventional PR titles</td><td>PR opened or edited</td></tr>
+          <tr><td><code>.github/workflows/release-please.yml</code></td><td>Maintains the Release PR; creates the tag</td><td>push to main</td></tr>
+          <tr><td><code>.github/workflows/deploy.yml</code></td><td>Builds and ships the released tag</td><td>called by release-please, or dispatched</td></tr>
+          <tr><td><code>release-please-config.json</code><br><code>.release-please-manifest.json</code></td><td>Package declarations; current version</td><td>read + written by the above</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:1.1rem;">
+    <h3>Commit type → version bump</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Type</th><th>Meaning</th><th>From 0.1.0</th><th>Changelog</th></tr></thead>
+        <tbody>
+          <tr><td><code>feat</code></td><td>New feature</td><td class="num-c">0.2.0</td><td>yes</td></tr>
+          <tr><td><code>fix</code></td><td>Bug fix</td><td class="num-c">0.1.1</td><td>yes</td></tr>
+          <tr><td><code>perf</code></td><td>Performance</td><td class="num-c">0.1.1</td><td>yes</td></tr>
+          <tr><td><code>feat!</code> / <code>BREAKING CHANGE:</code></td><td>Incompatible</td><td class="num-c">0.2.0 <span style="color:var(--ink-3)">(pre-1.0)</span></td><td>yes</td></tr>
+          <tr><td><code>refactor</code> <code>docs</code> <code>test</code> <code>chore</code> <code>ci</code></td><td>Everything else</td><td class="num-c">—</td><td>no</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-bottom:0;">The version comes from the <em>set</em> of commits since the last release, not each one.
+    Three <code>feat</code>s still produce a single minor bump. Highest bump wins.</p>
+  </div>
+
+  <div class="panel">
+    <h3>Command cheat sheet</h3>
+<pre><code><span class="c"># daily loop</span>
+git switch main &amp;&amp; git pull --prune
+git switch -c client/mp-02-route-tree
+git commit -m "feat(client): add route tree"
+git push -u origin client/mp-02-route-tree
+
+<span class="c"># after a squash merge</span>
+git switch main &amp;&amp; git pull --prune
+git branch -D client/mp-02-route-tree     <span class="c"># -d refuses; that is expected</span>
+
+<span class="c"># inspect</span>
+git diff main...HEAD                      <span class="c"># exactly what the PR shows</span>
+git log main..HEAD --oneline              <span class="c"># commits on this branch (two dots!)</span>
+git log --oneline --graph --decorate
+git tag -l 'client-v*' --sort=-v:refname
+git describe --tags
+
+<span class="c"># diagnose</span>
+git check-ignore -v path/to/.env.example  <span class="c"># which rule is hiding my file</span>
+git log -1 --format="%an &lt;%ae&gt;"           <span class="c"># who authored this, really</span>
+npx vercel@latest whoami --token="$TOKEN" <span class="c"># is the credential itself alive</span></code></pre>
+  </div>
+
+  <div class="callout">
+    <span class="lbl">The one rule behind most of this page</span>
+    <p>Nearly every failure in this pipeline is <strong>silent</strong> — a workflow that never fires, a check that
+    never reports, a job that skips and counts as a pass, a green run that deployed nothing. Build the whole chain
+    before you write any feature code, and prove each link with something you can see. Debugging plumbing is easy when
+    plumbing is the only thing that can be broken.</p>
+  </div>
+</section>
+
+<footer class="end">
+  Written from the Meal Planner setup, 2026 · Pair with <code>docs/GIT_AND_RELEASES.md</code> for the branching and
+  hotfix models, and <code>docs/SETUP_JOURNAL.md</code> for what happened on the day.
+</footer>
+
+</div>
