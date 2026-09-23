@@ -36,9 +36,6 @@ concurrency:
 jobs:
   client:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: client
     env:
       # `vercel pull` reads these to know which project it is talking to.
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -52,11 +49,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: client/.nvmrc
-          cache: npm
-          cache-dependency-path: client/package-lock.json
 
-      - run: npm ci
-
+      # Every vercel command runs from the REPO ROOT, never from client/.
+      # The project's Root Directory is already set to `client` in Vercel, and
+      # `vercel build` applies it relative to the working directory -- so
+      # running these inside client/ makes it look for client/client/ and fail
+      # with "Cannot resolve entry module index.html".
+      #
+      # There is no separate `npm ci` step for the same reason: `vercel build`
+      # runs the project's own install command, exactly as the cloud build does.
       - name: Pull Vercel production config
         run: npx --yes vercel@latest pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
