@@ -82,14 +82,21 @@ This is the **contract that makes automated versioning possible**. The tooling r
 **Scope is where `client` / `server` goes:**
 
 ```bash
-git commit -m "feat(client): MP-02 route tree with nested layouts"
-git commit -m "fix(server): MP-12 refresh cookie missing sameSite"
-git commit -m "feat(client)!: MP-30 typed api layer
+git commit -m "feat(client): add route tree with nested layouts"
+git commit -m "fix(server): set sameSite on the refresh cookie"
+git commit -m "feat(client)!: return paginated results from the api layer
 
 BREAKING CHANGE: mealsApi.list now returns Paginated<Meal>, not Meal[]"
 ```
 
-**Rules:** subject in imperative mood ("add", not "added"), no trailing period, under ~72 chars. Keep the ticket id in the subject — it links the commit back to `ROADMAP.md`.
+**Rules:** subject in imperative mood ("add", not "added"), **starting with a lowercase letter**, no trailing period, under ~72 chars.
+
+**Ticket ids do not go in the subject.** They live in the branch name
+(`client/mp-02-route-tree`) and the PR description. This is enforced:
+`.github/workflows/pr-title.yml` rejects a subject starting with a capital,
+and `MP-02 …` is a capital. The id is still one `git log --oneline` away via
+the branch, and the squash commit carries a `(#12)` PR reference that links
+the change back to its discussion.
 
 ---
 
@@ -103,7 +110,7 @@ git switch main && git pull
 git switch -c client/mp-02-route-tree
 
 # 3. work, committing in conventional format
-git commit -m "feat(client): MP-02 route tree with nested layouts"
+git commit -m "feat(client): add route tree with nested layouts"
 
 # 4. push and open a PR
 git push -u origin client/mp-02-route-tree
@@ -322,7 +329,7 @@ git push -u origin release/1.4
 
 # 3. only stabilization commits go on release/1.4
 git switch release/1.4
-git commit -m "fix(client): MP-42 ingredient row loses value on delete"
+git commit -m "fix(client): keep ingredient row values when a sibling is deleted"
 git push
 
 # 4. tag when stable
@@ -357,27 +364,82 @@ Branching from the **tag**, not from `main`, is the whole point — it ships the
 
 | Piece | Host | Trigger |
 |---|---|---|
-| `client/` | Vercel or Netlify | Root Directory = `client`. Preview deploy per PR, production on tag. |
+| `client/` | Vercel | Root Directory = `client`. Preview deploy per PR, production only on release. |
 | `server/` | Railway, Fly.io or Render | Root Directory = `server` |
 | Postgres | Neon or Supabase (free tier) | — |
 
 Both hosts support a subdirectory as the project root — this is the setting that makes a monorepo a non-issue.
 
-**Deploy on tag, not on every push to `main`.** Point production at `client-v*` tags so that merging a feature doesn't ship it. Preview deploys on PRs give you a URL to check before merging.
+**Deploy on release, not on every push to `main`.** Merging a feature must not ship it. Preview deploys on PRs give you a URL to check before merging.
+
+> ### Correction — a tag trigger does not work
+>
+> The obvious design is `on: push: tags: ['client-v*']`, and it is what earlier
+> drafts of this document and the visual guide both described. **It never fires.**
+>
+> A tag created by release-please using `GITHUB_TOKEN` does not trigger other
+> workflows — GitHub blocks that to stop workflows recursing. The deploy would
+> sit there silently, with no error anywhere, because nothing ran.
+>
+> The same rule applies to the Release PR itself: a PR opened by `GITHUB_TOKEN`
+> gets no CI checks, so required checks stay pending and branch protection
+> refuses the merge.
+>
+> **What this project actually does:**
+>
+> 1. `release-please.yml` authenticates with a **fine-grained PAT**, not
+>    `GITHUB_TOKEN`, so its Release PR is an ordinary PR that CI runs on.
+> 2. `deploy.yml` has **no tag trigger**. It is a reusable workflow
+>    (`on: workflow_call`) that `release-please.yml` calls directly, gated on
+>    the action's `client--release_created` output — which is `true` only on
+>    the push that merged a Release PR.
+> 3. It checks out `inputs.ref` — the released tag — so production gets exactly
+>    the blessed commit rather than whatever `main` has drifted to.
+> 4. `workflow_dispatch` on the same workflow covers manual re-deploys and
+>    rollbacks to any earlier tag.
+>
+> Explicit chaining beats the implicit tag trigger anyway: it does not depend on
+> which token happened to create the tag, so it cannot quietly break if the PAT
+> is ever rotated away.
+
+**Vercel specifics that cost real time:**
+
+- Set **Production Branch** to a branch that is never pushed to (`production`).
+  Otherwise Vercel promotes every push to `main` to production on its own,
+  which defeats the whole model. Previews keep working.
+- Run every `vercel` command from the **repo root**, never from `client/`. The
+  project's Root Directory is already `client`, and `vercel build` applies it
+  relative to the working directory — running inside `client/` resolves to
+  `client/client/` and fails with `Cannot resolve entry module index.html`.
+- Scope the Vercel token to the **account**, not to a single project. A
+  project-scoped token can call project APIs but has no user identity, so the
+  CLI dies on `whoami` with a misleading "Could not retrieve Project Settings".
 
 ---
 
 ## 10. Rollout plan
 
-Don't build all of this today — most of it is meaningless until there's something to release.
+The original plan was to defer most of this until there was something to
+release. It was brought forward instead and built in one pass **before MP-02**,
+on the reasoning that plumbing is far easier to debug when the only thing that
+can be broken is the plumbing. That turned out to be right — four separate
+failures surfaced during setup, none of which would have been obvious if they
+had been tangled up with a real feature.
 
-| Ticket | When | What |
+| Ticket | Status | What |
 |---|---|---|
-| **GIT-01** | Now | `ci.yml` with path filters |
-| **GIT-02** | Now | Protect `main`, require the `client` check |
-| **GIT-03/04** | After MP-10 (server exists, so both packages are real) | release-please manifest + workflow |
-| **GIT-05** | After Phase 4 (recipes work — something worth calling 0.2.0) | First real release PR → `client-v0.2.0` |
-| **GIT-06** | MP-104 | Deploy, then practise §8b and §8c once each |
+| **GIT-01** | ✅ done | `ci.yml`, change-detection job gating client/server builds |
+| **GIT-02** | ✅ done | `main` protected; squash-only; required checks `changes`, `client`, `lint` |
+| **GIT-02b** | ✅ done | `pr-title.yml` — conventional PR titles, since squash makes the title the commit |
+| **GIT-03/04** | ✅ done | release-please config + manifest + workflow, `client` package only |
+| **GIT-05** | ✅ done | `client-v0.2.0` released and deployed on 2026-09-23 |
+| **GIT-06** | ✅ done | Vercel wired; production reachable only through a release |
+| **GIT-07** | ⏳ MP-10 | Add `server` to the manifest; the CI `server` job activates itself |
+| **GIT-08** | ⏳ later | Practise §8b (release branch) and §8c (hotfix) once each |
+
+**Deviation from §6, worth knowing:** `.release-please-manifest.json` currently
+declares only `client`. A package whose directory does not exist produces
+errors, so `server` gets added in the same PR that creates `server/`.
 
 Adopt **§3 Conventional Commits and §4 the daily loop starting with MP-02.** Those two cost nothing and everything else depends on the commit history being in the right format from the start. Retrofitting commit messages later is not possible.
 
@@ -389,7 +451,7 @@ Adopt **§3 Conventional Commits and §4 the daily loop starting with MP-02.** T
 # daily
 git switch main && git pull
 git switch -c client/mp-02-route-tree
-git commit -m "feat(client): MP-02 route tree"
+git commit -m "feat(client): add route tree"
 git push -u origin client/mp-02-route-tree
 
 # inspect

@@ -803,7 +803,7 @@ chore(client): bump vite to 8.3.1</code></pre>
           <tr><td><code>.github/workflows/release-please.yml</code></td><td>Reads conventional commits, maintains the Release PR, creates the tag when it's merged.</td><td>push to main</td></tr>
           <tr><td><code>release-please-config.json</code></td><td>Declares <code>client</code> and <code>server</code> as separately-versioned packages.</td><td>read by the above</td></tr>
           <tr><td><code>.release-please-manifest.json</code></td><td>Current version of each package. release-please rewrites it.</td><td>read + written</td></tr>
-          <tr><td><code>.github/workflows/deploy.yml</code></td><td>Triggers the production deploy on Vercel and Render.</td><td>on tag push</td></tr>
+          <tr><td><code>.github/workflows/deploy.yml</code></td><td>Builds and ships the released tag to Vercel and Render.</td><td>called by <code>release-please.yml</code></td></tr>
         </tbody>
       </table>
     </div>
@@ -948,9 +948,19 @@ server-v0.2.0</code></pre>
       <li class="ci">
         <h4>deploy.yml ships it <span class="chip ci">automatic</span></h4>
         <pre><code>on:
-  push:
-    tags: ['client-v*', 'server-v*']</code></pre>
+  workflow_call:        # release-please.yml invokes this directly
+    inputs:
+      ref: { required: true, type: string }
+  workflow_dispatch:    # manual re-deploy or rollback to any tag
+    inputs:
+      ref: { required: true, type: string }</code></pre>
         <p><strong>Order matters:</strong> server first (Render's pre-deploy runs <code>prisma migrate deploy</code>), then client. Ship a client that calls an endpoint that isn't live yet and you've broken production for the minute in between.</p>
+
+        <div class="rule-callout">
+          <span class="k">Correction — <code>on: push: tags:</code> never fires</span>
+          <p>An earlier version of this guide showed the deploy triggering on the tag. <strong>It does not work.</strong> A tag created by release-please using <code>GITHUB_TOKEN</code> does not trigger other workflows — GitHub blocks that to stop workflows recursing — so the deploy sits there silently with no error anywhere. The same rule cost us twice: a Release PR opened by <code>GITHUB_TOKEN</code> also gets no CI checks, so required checks stay pending and branch protection refuses the merge.</p>
+          <p>Two fixes, both needed. <strong>One:</strong> authenticate release-please with a <em>fine-grained PAT</em> instead of <code>GITHUB_TOKEN</code>, so its Release PR is an ordinary PR that CI runs on. <strong>Two:</strong> make <code>deploy.yml</code> a reusable workflow that <code>release-please.yml</code> calls, gated on the <code>client--release_created</code> output — <code>true</code> only on the push that merged a Release PR. Explicit chaining also survives the PAT being rotated away, which a tag trigger would not.</p>
+        </div>
       </li>
       <li>
         <h4>Verify <span class="chip wait">2 min</span></h4>
@@ -1597,6 +1607,11 @@ on:
   push:
     tags: ['v*']              # only a tag reaches production</code></pre>
     <p><code>workflow_dispatch</code> is the whole mechanism behind "the QA team ran a pipeline" — a button in the GitHub Actions UI, with a <code>ref</code> input so they can also pick a specific tag.</p>
+
+    <div class="rule-callout">
+      <span class="k">The <code>deploy-prod.yml</code> tag trigger above has a condition</span>
+      <p>It only fires if a <em>human or a PAT</em> created the tag. Tags created by a workflow using <code>GITHUB_TOKEN</code> — which is what release-please does by default — trigger nothing. Either give release-please a PAT, or drop the tag trigger and have release-please call the deploy directly (see §11). This project does both: PAT <em>and</em> explicit call.</p>
+    </div>
 
     <div class="rule-callout">
       <span class="k">The freeze is a rule, not a git feature</span>
