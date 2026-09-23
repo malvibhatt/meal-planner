@@ -1,0 +1,67 @@
+# Production deploy. Deliberately has NO tag trigger.
+#
+# `on: push: tags:` would look like the obvious design, but a tag created by
+# release-please using GITHUB_TOKEN does not trigger other workflows -- GitHub
+# blocks that to prevent workflows recursing. The deploy would silently never
+# run. So this is a reusable workflow that release-please.yml *calls* directly
+# once it has created the tag.
+#
+# workflow_dispatch is kept for re-deploys and for rolling forward to an older
+# tag by hand.
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Tag or SHA to deploy'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Tag or SHA to deploy (e.g. client-v0.2.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never let two production deploys overlap; queue rather than cancel, so a
+  # deploy already shipping is allowed to finish.
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    env:
+      # `vercel pull` reads these to know which project it is talking to.
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The exact released commit -- not main, not a branch tip.
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: client/.nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+
+      - name: Pull Vercel production config
+        run: npx --yes vercel@latest pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: npx --yes vercel@latest build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to production
+        run: npx --yes vercel@latest deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}

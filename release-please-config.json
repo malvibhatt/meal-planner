@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+
+  "separate-pull-requests": true,
+
+  "pull-request-title-pattern": "chore(${component}): release ${version}",
+
+  "bootstrap-sha": "a7d0c7695272367fd5c50ae2ea41bd5038915f46",
+
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+
+  "packages": {
+    "client": {
+      "release-type": "node",
+      "package-name": "client",
+      "component": "client",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}
