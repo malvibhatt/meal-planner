@@ -221,7 +221,7 @@
   <nav class="toc" aria-label="Contents">
     <ol>
       <li><a href="#model"><span class="n">01</span>The model</a></li>
-      <li><a href="#naming"><span class="n">02</span>Branch naming</a></li>
+      <li><a href="#naming"><span class="n">02</span>Conventions</a></li>
       <li><a href="#mergeback"><span class="n">03</span>Merging back</a></li>
       <li><a href="#hotfix"><span class="n">04</span>Hotfixes</a></li>
       <li><a href="#pick"><span class="n">05</span>Merge vs cherry-pick</a></li>
@@ -315,7 +315,10 @@
 
   <!-- ================= 02 ================= -->
   <section id="naming">
-    <h2><span class="n">02</span>Branch naming</h2>
+    <h2><span class="n">02</span>Conventions</h2>
+    <p>Four names get written by hand on every ticket: the branch, the PR title, the commit subjects on the branch, and the body text. Only <strong>one of them is load-bearing</strong> — and it is not the one most people are careful about. This section says which, and why.</p>
+
+    <h3>Branch names</h3>
     <p>Git has no idea what "client" or "server" means — a branch always spans the whole repo. The prefix is <strong>convention</strong>, and nothing but discipline stops you editing <code>server/</code> on a <code>client/</code> branch.</p>
     <div class="tw">
       <table>
@@ -325,14 +328,110 @@
           <tr><td><code>client/mp-02-route-tree</code></td><td>Frontend ticket</td></tr>
           <tr><td><code>server/mp-12-auth-endpoints</code></td><td>Backend ticket</td></tr>
           <tr><td><code>mp-31-fetch-hook</code></td><td>Touches both — no prefix</td></tr>
+          <tr><td><code>docs/conventions-section</code></td><td>Docs only</td></tr>
+          <tr><td><code>chore/git-01-ci-and-releases</code></td><td>Tooling, CI, config</td></tr>
           <tr><td><code>release/1.4</code></td><td>Stabilization for the 1.4 train</td></tr>
           <tr><td><code>hotfix/1.4.1-token-refresh</code></td><td>Urgent fix against a shipped release</td></tr>
         </tbody>
       </table>
     </div>
+    <p>Lowercase, hyphen-separated, ticket id first after the prefix. <strong>The branch is where the ticket id lives</strong> — it no longer appears in the commit subject, so this is the link back to <code>ROADMAP.md</code> that survives the whole flow.</p>
     <p>The reliable filter is <strong>paths</strong>, not names — this one git actually enforces:</p>
     <pre><code>git log --oneline -- client/        # every commit touching the client
 git diff main --stat -- server/</code></pre>
+
+    <h3>The PR title — the only one that matters</h3>
+    <p>Merges are <strong>squash</strong> merges. Every commit on your branch collapses into a single commit on <code>main</code>, and that commit's message is <strong>the PR title</strong>. release-please then reads nothing but the commit subjects on <code>main</code> to compute the next version number.</p>
+
+    <aside class="term">
+      <span class="t">Why it is irreversible</span>
+      <p>Rewriting a message on <code>main</code> means rewriting pushed history. The title you type in the PR box is the one you keep — which is why <code>.github/workflows/pr-title.yml</code> fails the PR before it can become history.</p>
+    </aside>
+
+    <pre><code>&lt;type&gt;(&lt;scope&gt;): &lt;subject&gt;
+
+feat(client): show the app version in the header
+fix(server): send sameSite on the refresh cookie
+ci: run vercel commands from the repo root</code></pre>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Part</th><th>Rule</th><th>Enforced</th></tr></thead>
+        <tbody>
+          <tr><td><code>type</code></td><td>One of <code>feat fix perf refactor docs test chore ci build revert</code></td><td>yes</td></tr>
+          <tr><td><code>scope</code></td><td><code>client</code> or <code>server</code>. Optional — omit it when the change spans both.</td><td>yes</td></tr>
+          <tr><td><code>subject</code></td><td>Starts <strong>lowercase</strong>, imperative mood, no trailing period, ~72 chars.</td><td>yes</td></tr>
+          <tr><td>ticket id</td><td><strong>Not here.</strong> It belongs in the branch name and the PR description.</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="compare">
+      <div class="panel bad">
+        <h4>✗ rejected</h4>
+        <pre><code>shopping list stuff
+feat(cleint): add filters
+Feat(client): add filters
+feat(client): Add filters.
+feat(client): MP-72 add filters</code></pre>
+        <p>No type; misspelled scope; capitalised type; capital subject plus a full stop; ticket id in the subject.</p>
+      </div>
+      <div class="panel good">
+        <h4>✓ accepted</h4>
+        <pre><code>feat(client): add ingredient filters
+fix(client): keep row values on delete
+docs: add a conventions section
+chore(client): bump antd to v6.7
+feat(client)!: return Paginated&lt;Recipe&gt;</code></pre>
+        <p>The last one is a breaking change — the <code>!</code> forces a major bump.</p>
+      </div>
+    </div>
+
+    <p>GitHub appends <code>(#12)</code> to the squashed subject automatically. That is expected and release-please parses straight through it.</p>
+
+    <h3>Version bumps, by type</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Type</th><th>Meaning</th><th>Bump</th></tr></thead>
+        <tbody>
+          <tr><td><code>feat</code></td><td>New user-visible capability</td><td><strong>minor</strong> — 0.2.0 → 0.3.0</td></tr>
+          <tr><td><code>fix</code></td><td>Bug fix</td><td><strong>patch</strong> — 0.2.0 → 0.2.1</td></tr>
+          <tr><td><code>perf</code></td><td>Faster, same behaviour</td><td>patch</td></tr>
+          <tr><td><code>refactor</code> <code>docs</code> <code>test</code> <code>chore</code> <code>ci</code> <code>build</code></td><td>No behaviour change for users</td><td>none</td></tr>
+          <tr><td><code>feat!</code> or <code>BREAKING CHANGE:</code> footer</td><td>Incompatible change</td><td><strong>major</strong> — 0.2.0 → 1.0.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The bump comes from the <em>set</em> of commits since the last release, not from each one: three <code>feat</code>s still produce a single minor bump. Highest wins — any breaking change makes it major, else any <code>feat</code> makes it minor, else patch.</p>
+
+    <h3>Commit subjects on your branch</h3>
+    <p>These get squashed away, so they never reach <code>main</code> and never affect a version number. <code>wip</code> and <code>fix typo</code> genuinely do no harm.</p>
+    <p>Write them conventionally anyway. Not for the tooling — for the moment you open the PR and need a title, when a branch of well-formed subjects hands you one already written. And because the habit has to be automatic before the day you cut a release branch, where merges are <code>--no-ff</code> and every subject <em>does</em> reach the history release-please reads.</p>
+
+    <h3>The body</h3>
+    <p>Optional, and worth writing whenever the subject line leaves a "but why" hanging. Blank line after the subject, wrapped at ~72 columns, present tense.</p>
+    <pre><code>fix(client): keep ingredient rows stable on delete
+
+Rows were keyed by array index, so removing the middle row made React
+reuse the wrong DOM nodes and the remaining two lost their values.
+Key by the row's generated id instead.
+
+Refs: MP-42</code></pre>
+    <p><strong>Say why, not what.</strong> The diff already shows what changed; it cannot show what you tried first, which constraint forced the approach, or which bug report sent you here. That is the part future-you cannot reconstruct.</p>
+    <p>Two footers carry meaning:</p>
+    <ul>
+      <li><code>Refs: MP-42</code> — the ticket link, now that the subject has no room for it. Put it in the PR description too; a squash merge copies the description into the commit body.</li>
+      <li><code>BREAKING CHANGE: mealsApi.list now returns Paginated&lt;Recipe&gt;</code> — forces a major bump and lands verbatim in <code>CHANGELOG.md</code>. Works from the PR description on a squash merge, exactly like <code>!</code> in the subject.</li>
+    </ul>
+
+    <h3>Release PR titles are generated — and still checked</h3>
+    <p>release-please writes its own PR titles from <code>pull-request-title-pattern</code> in <code>release-please-config.json</code>. Those PRs face the same title check as yours, so the pattern has to produce something the check accepts — a valid type, and any scope drawn from the allowed list.</p>
+    <p>release-please's default pattern renders the component as a scope with a stray space, <code>chore( client): release 0.2.0</code>, which the check rejects as an unknown scope. Hence the explicit <code>pull-request-title-pattern</code> in the config. Change one of those two files and re-check the other.</p>
+
+    <div class="rule-callout">
+      <span class="k">The one rule</span>
+      <p>Be as sloppy as you like on your branch. Be exact in the PR title box — it is the only text in the whole flow that becomes permanent, drives the version number, and cannot be edited afterwards.</p>
+    </div>
   </section>
 
   <!-- ================= 03 ================= -->
@@ -704,10 +803,10 @@ git switch main &amp;&amp; git merge --no-ff hotfix/1.4.1-token-refresh</code></
     <div class="compare">
       <div class="panel">
         <h4>Commits you wrote</h4>
-        <pre><code>feat(client): MP-72 weekly
-  shopping list aggregation
+        <pre><code>feat(client): aggregate the weekly
+  shopping list
 
-fix(client): MP-62 macros show
+fix(client): stop macros showing
   NaN when servings is 0
 
 chore(client): bump vite to 8.3.1</code></pre>
@@ -919,7 +1018,7 @@ git switch -c server/mp-72-shopping-list</code></pre>
         <h4>Commit, conventionally <span class="chip you">you</span></h4>
         <pre><code>npx prisma migrate dev --name add_shopping_list_view
 git add -A
-git commit -m "feat(server): MP-72 weekly shopping list endpoint"
+git commit -m "feat(server): add the weekly shopping list endpoint"
 git push -u origin server/mp-72-shopping-list</code></pre>
         <p>The <code>feat(server):</code> prefix is what later becomes a minor version bump and a changelog line. A wrong prefix here means a wrong version number.</p>
       </li>
@@ -1038,7 +1137,7 @@ git tag -l 'client-v*' --sort=-v:refname | head -3</code></pre>
       </li>
       <li>
         <h4>Reproduce, fix, commit <span class="chip you">you</span></h4>
-        <pre><code>git commit -m "fix(client): MP-72 guard empty week in shopping list"</code></pre>
+        <pre><code>git commit -m "fix(client): guard an empty week in the shopping list"</code></pre>
         <p><code>fix:</code> not <code>feat:</code> — it's a patch bump. Keep it to the single smallest change that stops the crash; a hotfix is not the moment to tidy anything.</p>
       </li>
       <li>
@@ -1748,7 +1847,7 @@ with:
     <pre><code># daily
 git switch main &amp;&amp; git pull
 git switch -c client/mp-02-route-tree
-git commit -m "feat(client): MP-02 route tree"
+git commit -m "feat(client): add the route tree"
 git push -u origin client/mp-02-route-tree
 
 # inspect
