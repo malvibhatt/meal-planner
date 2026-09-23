@@ -3,7 +3,7 @@
 
   "separate-pull-requests": true,
 
-  "pull-request-title-pattern": "chore(${component}): release ${version}",
+  "pull-request-title-pattern": "chore: release${component} ${version}",
 
   "bootstrap-sha": "a7d0c7695272367fd5c50ae2ea41bd5038915f46",
 
