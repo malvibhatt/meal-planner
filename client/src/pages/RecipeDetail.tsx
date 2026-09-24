@@ -1,5 +1,8 @@
+import { useParams } from "react-router-dom";
+
 function RecipeDetail() {
-  return <h2>RecipeDetail</h2>;
+  const { id } = useParams();
+  return <h2>RecipeDetail ({id})</h2>;
 }
 
 export default RecipeDetail;
