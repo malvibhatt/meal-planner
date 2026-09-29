@@ -14,9 +14,10 @@ const ShoppingPage = lazy(() => import("@/pages/ShoppingPage"));
 const TodosPage = lazy(() => import("@/pages/TodosPage"));
 const ForbiddenPage = lazy(() => import("@/pages/ForbiddenPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
+import PageSkeleton from "@/components/ui/PageSkeleton";
 
 const withSuspense = (el: React.ReactNode) => (
-  <Suspense fallback={<p>Loading…</p>}>{el}</Suspense>
+  <Suspense fallback={<PageSkeleton />}>{el}</Suspense>
 );
 
 export const router = createBrowserRouter([
