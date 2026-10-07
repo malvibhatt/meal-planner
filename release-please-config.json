@@ -17,6 +17,13 @@
       "component": "client",
       "include-component-in-tag": true,
       "changelog-path": "CHANGELOG.md"
+    },
+    "server": {
+      "release-type": "node",
+      "package-name": "server",
+      "component": "server",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md"
     }
   }
 }

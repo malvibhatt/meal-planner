@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023"],
+
+    /* Node ESM. "nodenext" makes TypeScript resolve modules exactly the way
+       Node does at runtime, so a thing that typechecks also runs. */
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["node"],
+
+    /* Lets us write `import { app } from './app.ts'` — the real file name —
+       and have tsc rewrite it to './app.js' in the emitted output. Without
+       these two, Node ESM would force us to import a `.js` file that does
+       not exist in src/. */
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+
+    "outDir": "dist",
+    "rootDir": ".",
+    "sourceMap": true,
+    "skipLibCheck": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "erasableSyntaxOnly": true
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}
