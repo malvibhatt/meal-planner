@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { defineConfig, env } from 'prisma/config'
+import { defineConfig } from 'prisma/config'
 
 /**
  * Prisma 7 moved the datasource URL out of schema.prisma and into this file.
@@ -7,8 +7,13 @@ import { defineConfig, env } from 'prisma/config'
  * CLI reads the same `.env` the server does instead of Prisma's own
  * half-working env loader.
  *
- * `env()` fails loudly if DATABASE_URL is missing, which is what we want for
- * a destructive-by-nature tool like `migrate`.
+ * Note `process.env[...]` rather than the `env()` helper from `prisma/config`.
+ * `env()` resolves eagerly and throws if the variable is missing — and this
+ * file is loaded by *every* prisma command, including `generate`, which does
+ * not touch a database. That combination breaks `npm ci` anywhere there is no
+ * .env file, CI being the obvious one. Reading process.env directly leaves the
+ * URL undefined until a command actually needs it, at which point Prisma
+ * reports a clear "no datasource URL" error of its own.
  */
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -18,6 +23,6 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    url: env('DATABASE_URL'),
+    url: process.env['DATABASE_URL'],
   },
 })
