@@ -22,3 +22,6 @@ npm-debug.log*
 
 # vercel cli link (machine-local project ids)
 .vercel
+
+# prisma generated client (rebuilt by `npm ci` via postinstall)
+server/generated/

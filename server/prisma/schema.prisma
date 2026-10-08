@@ -1,0 +1,253 @@
+// Meal Planner schema — the data model from ROADMAP.md §4, made real.
+//
+// Prisma 7 notes, because they differ from every v6 tutorial you will find:
+//   * `datasource` carries no `url`. The connection string lives in
+//     prisma.config.ts, which is ordinary TypeScript and can therefore read
+//     process.env properly.
+//   * The generator is `prisma-client` (not `prisma-client-js`) and must be
+//     given an explicit `output`. The generated code is gitignored and
+//     rebuilt by `postinstall`.
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+
+  // Match the server's own module system: ESM, Node runtime, and `.ts`
+  // import specifiers that tsc rewrites to `.js` on emit (the same
+  // rewriteRelativeImportExtensions trick src/ uses).
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "ts"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+//
+// These are Postgres enum types, not free text. The payoff shows up in MP-14:
+// the shopping list aggregates "by ingredient and unit", and that grouping is
+// only meaningful if "tbsp", "Tbsp" and "tablespoon" cannot all coexist.
+// The cost is that adding a unit later needs a migration. Worth it.
+// ---------------------------------------------------------------------------
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  SNACK
+  DINNER
+}
+
+enum Unit {
+  GRAM
+  KILOGRAM
+  MILLILITRE
+  LITRE
+  TEASPOON
+  TABLESPOON
+  CUP
+  PIECE
+  PINCH
+}
+
+enum IngredientCategory {
+  PRODUCE
+  PROTEIN
+  DAIRY
+  GRAIN
+  LEGUME
+  SPICE
+  CONDIMENT
+  BAKING
+  FROZEN
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model User {
+  id String @id @default(cuid())
+
+  // Stored lowercased by the register/login handlers (MP-12) — a unique index
+  // is case-sensitive, so "Me@x.com" and "me@x.com" would otherwise be two
+  // different accounts.
+  email        String @unique
+  passwordHash String
+  name         String
+
+  // A list, not a single value, so MP-25's permission hook can ask "does this
+  // user have ADMIN?" without a separate join table.
+  roles Role[] @default([USER])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipes     Recipe[]
+  planEntries MealPlanEntry[]
+  todos       TodoItem[]
+  pantry      PantryItem[]
+}
+
+/// The global ingredient catalogue — one row per real-world ingredient,
+/// shared by every recipe and every pantry. This single table is the reason
+/// §2 chose Postgres: "chickpeas" exists once, so the pantry filter is a set
+/// operation rather than a scan over 40 duplicated strings.
+model Ingredient {
+  id          String             @id @default(cuid())
+  name        String             @unique
+  defaultUnit Unit
+  category    IngredientCategory @default(OTHER)
+  createdAt   DateTime           @default(now())
+
+  recipes RecipeIngredient[]
+  pantry  PantryItem[]
+}
+
+model Recipe {
+  id       String  @id @default(cuid())
+  name     String
+  photoUrl String?
+  notes    String?
+
+  // Macros are per serving, so MP-62 multiplies by MealPlanEntry.servings
+  // rather than dividing by anything.
+  servings           Int
+  caloriesPerServing Int
+  proteinPerServing  Float
+  carbsPerServing    Float?
+  fatPerServing      Float?
+
+  isPublic    Boolean @default(false)
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy   User               @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  ingredients RecipeIngredient[]
+  prepItems   PrepItem[]
+  planEntries MealPlanEntry[]
+
+  @@index([createdById])
+  @@index([name])
+}
+
+/// Join table for the many-to-many between Recipe and Ingredient, carrying
+/// the two things that only make sense on the pairing: how much, and in what
+/// unit. The unit is repeated here rather than read from
+/// Ingredient.defaultUnit because a recipe may want 1 CUP of flour where the
+/// catalogue's default is GRAM.
+model RecipeIngredient {
+  recipeId     String
+  ingredientId String
+  quantity     Float
+  unit         Unit
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Restrict, not Cascade: deleting a catalogue ingredient that recipes still
+  // reference should fail loudly, not silently gut those recipes.
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  // The composite primary key enforces "an ingredient appears at most once
+  // per recipe" in the database, so no handler has to remember to check.
+  @@id([recipeId, ingredientId])
+  @@index([ingredientId])
+}
+
+/// "soak beans, 12h" — the input to the prep-timer rule in §4 / MP-70.
+model PrepItem {
+  id            String @id @default(cuid())
+  recipeId      String
+  label         String
+  leadTimeHours Int
+
+  recipe Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  todos  TodoItem[]
+
+  @@index([recipeId])
+}
+
+model MealPlanEntry {
+  id     String @id @default(cuid())
+  userId String
+
+  // @db.Date — a calendar day with no time and no timezone. A plain
+  // `timestamp` here would make "the week of the 6th" shift depending on who
+  // is asking, and the ?from=&to= range queries in MP-14 would drift.
+  date DateTime @db.Date
+
+  mealType MealType
+  recipeId String
+  servings Int      @default(1)
+
+  createdAt DateTime @default(now())
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  todos  TodoItem[]
+
+  // Straight from §4. Stops the same recipe being added twice to one slot,
+  // while still allowing two different recipes in the same slot.
+  @@unique([userId, date, mealType, recipeId])
+  @@index([userId, date])
+}
+
+/// Derived, not hand-written: MP-14 regenerates these whenever the plan is
+/// written. The two `source*` columns are what make regeneration idempotent —
+/// the unique index below lets the regenerator upsert "the todo for this prep
+/// item of this plan entry", which is how a ticked `isDone` survives a
+/// rewrite instead of being wiped.
+model TodoItem {
+  id     String @id @default(cuid())
+  userId String
+
+  label       String
+  dueAt       DateTime
+  isDone      Boolean   @default(false)
+  completedAt DateTime?
+
+  sourceEntryId    String?
+  sourcePrepItemId String?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // SetNull, not Cascade, on both sources. MP-14's AC says deleting a plan
+  // entry removes its *undone* todos — which means the done ones must be able
+  // to outlive their source as history. Cascade would delete them.
+  sourceEntry    MealPlanEntry? @relation(fields: [sourceEntryId], references: [id], onDelete: SetNull)
+  sourcePrepItem PrepItem?      @relation(fields: [sourcePrepItemId], references: [id], onDelete: SetNull)
+
+  // Postgres treats NULLs as distinct in a unique index, so this constrains
+  // generated todos (both ids set) to one per entry+prep-item pair, while
+  // placing no limit on orphaned or hand-written ones (ids null).
+  @@unique([sourceEntryId, sourcePrepItemId])
+  @@index([userId, dueAt])
+}
+
+/// "what I have available" — the input to MP-51's pantry filter. Membership
+/// only; quantities are deliberately not tracked, because the question the UI
+/// asks is "can I cook this?", not "how much is left?".
+model PantryItem {
+  userId       String
+  ingredientId String
+  addedAt      DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@id([userId, ingredientId])
+  @@index([ingredientId])
+}

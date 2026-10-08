@@ -1,0 +1,41 @@
+# Postgres 16 for local development, per MP-11.
+#
+# Optional. Your Homebrew Postgres 16.14 on port 5432 works just as well, and
+# .env.example points there by default because it needs no daemon running.
+# This file exists for when you want the database isolated and disposable —
+# `docker compose down -v` throws away everything, which is handy right before
+# testing a migration from scratch.
+#
+#   docker compose up -d        start it
+#   docker compose logs -f db   watch it
+#   docker compose down         stop it, keep the data
+#   docker compose down -v      stop it, delete the data
+#
+# Note the host port: 5433, not 5432. Homebrew Postgres already owns 5432, and
+# two servers cannot share a port. If you use this, switch DATABASE_URL in
+# .env to the commented docker line.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: meal-planner-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: meal_planner
+    ports:
+      - '5433:5432'
+    volumes:
+      - meal-planner-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # `prisma migrate` run immediately after `up -d` would otherwise race the
+      # server's startup. With this, `docker compose up -d --wait` returns only
+      # once the database is actually accepting queries.
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d meal_planner']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  meal-planner-pgdata:
