@@ -1,0 +1,15 @@
+{
+  // The production build: src/ only.
+  //
+  // tsconfig.json deliberately includes test/ and vitest.config.ts so the
+  // editor and `npm run typecheck` check them. Emitting them is another
+  // matter — compiled test files in dist/ get discovered as a *second* copy
+  // of the suite, and every test runs twice.
+  //
+  // rootDir stays "." rather than "src": src/db/prisma.ts imports the
+  // generated client from ../../generated, and a file outside rootDir is an
+  // error. Keeping "." puts the output at dist/src/, which is what the
+  // `start` script points at.
+  "extends": "./tsconfig.json",
+  "include": ["src"]
+}

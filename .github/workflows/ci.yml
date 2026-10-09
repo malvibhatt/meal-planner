@@ -75,6 +75,35 @@ jobs:
     defaults:
       run:
         working-directory: server
+
+    # The auth tests talk to a real Postgres rather than a mocked Prisma —
+    # the behaviour under test is largely what the database enforces (the
+    # unique email index, the user still existing on refresh). This service
+    # container is that database. test/globalSetup.ts applies the migrations
+    # to it before the first test runs, so no extra step is needed here.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: meal_planner_test
+        ports:
+          - 5432:5432
+        # Without the health check, `npm test` can start before Postgres is
+        # accepting connections and fail intermittently.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Named *_test deliberately: vitest.config.ts refuses to run against a
+      # database whose name does not end in _test, so it can never truncate
+      # something that matters.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meal_planner_test?schema=public
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
