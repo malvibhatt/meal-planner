@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import { env } from './config/env.ts'
 import { healthRouter } from './routes/health.ts'
+import { authRouter } from './routes/auth.ts'
 import { errorHandler } from './middleware/errorHandler.ts'
 import { notFound } from './middleware/notFound.ts'
 
@@ -35,6 +36,7 @@ export function createApp() {
   app.use(cookieParser())
 
   app.use(healthRouter)
+  app.use(authRouter)
 
   // Order is load-bearing: 404 after all routes, error handler dead last.
   app.use(notFound)
