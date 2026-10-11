@@ -4,6 +4,9 @@ import cors from 'cors'
 import { env } from './config/env.ts'
 import { healthRouter } from './routes/health.ts'
 import { authRouter } from './routes/auth.ts'
+import { ingredientsRouter } from './routes/ingredients.ts'
+import { recipesRouter } from './routes/recipes.ts'
+import { UPLOAD_DIR, uploadsRouter } from './routes/uploads.ts'
 import { errorHandler } from './middleware/errorHandler.ts'
 import { notFound } from './middleware/notFound.ts'
 
@@ -37,6 +40,23 @@ export function createApp() {
 
   app.use(healthRouter)
   app.use(authRouter)
+  app.use(ingredientsRouter)
+  app.use(recipesRouter)
+  app.use(uploadsRouter)
+
+  // Serves the uploaded images back. `index: false` and `dotfiles: 'ignore'`
+  // keep this from behaving like a general-purpose file server: no directory
+  // listings, no serving anything that starts with a dot.
+  app.use(
+    '/uploads',
+    express.static(UPLOAD_DIR, {
+      index: false,
+      dotfiles: 'ignore',
+      // Filenames are random and content never changes under one, so these
+      // can be cached hard.
+      maxAge: '7d',
+    }),
+  )
 
   // Order is load-bearing: 404 after all routes, error handler dead last.
   app.use(notFound)

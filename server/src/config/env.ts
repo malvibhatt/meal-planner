@@ -17,6 +17,11 @@ const envSchema = z.object({
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
+  // Where this API is reachable from a browser. Upload responses need an
+  // absolute URL, because an <img src> is resolved against the *page's*
+  // origin (the Vite dev server), not the API's.
+  PUBLIC_URL: z.url().default('http://localhost:4000'),
+
   // 32 chars is the floor for an HMAC-SHA256 secret worth the name.
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
 })

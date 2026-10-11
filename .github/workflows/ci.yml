@@ -115,3 +115,8 @@ jobs:
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm test
+      # Parity with the client job. Typechecking is not the same as building:
+      # `tsc --noEmit` never writes output, so it cannot catch a broken emit
+      # path or a `start` script pointing at a file the build does not produce.
+      # Both of those shipped before this step existed.
+      - run: npm run build

@@ -25,3 +25,7 @@ npm-debug.log*
 
 # prisma generated client (rebuilt by `npm ci` via postinstall)
 server/generated/
+
+# locally uploaded images (MP-13) — the directory is tracked, its contents are not
+server/uploads/*
+!server/uploads/.gitkeep

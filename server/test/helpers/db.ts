@@ -1,6 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../generated/prisma/client.ts'
-import { Role } from '../../generated/prisma/enums.ts'
+import { IngredientCategory, Role, Unit } from '../../generated/prisma/enums.ts'
 import { hashPassword } from '../../src/auth/password.ts'
 
 /** Its own client, pointed at the test database by vitest.config.ts. */
@@ -38,4 +38,19 @@ export async function createUser(overrides: {
       roles: overrides.roles ?? [Role.USER],
     },
   })
+}
+
+/** A minimal ingredient catalogue for tests that need real ingredient ids. */
+export async function createIngredients(names: string[]) {
+  return Promise.all(
+    names.map((name, index) =>
+      testDb.ingredient.create({
+        data: {
+          name,
+          defaultUnit: index % 2 === 0 ? Unit.GRAM : Unit.PIECE,
+          category: IngredientCategory.OTHER,
+        },
+      }),
+    ),
+  )
 }
