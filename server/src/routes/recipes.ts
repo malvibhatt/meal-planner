@@ -4,7 +4,8 @@ import { prisma } from '../db/prisma.ts'
 import { requireAuth } from '../middleware/requireAuth.ts'
 import { HttpError, forbidden, unauthorized } from '../lib/httpError.ts'
 import { paginate, paginationSchema, toSkipTake } from '../lib/pagination.ts'
-import { Role, Unit } from '../../generated/prisma/enums.ts'
+import { planEntryTodoInclude, regenerateTodosForEntry } from '../services/todos.ts'
+import { PrepTiming, Role, Unit } from '../../generated/prisma/enums.ts'
 import type { Prisma } from '../../generated/prisma/client.ts'
 
 export const recipesRouter = Router()
@@ -54,9 +55,45 @@ const recipeBodySchema = z.object({
           .min(0, 'Lead time cannot be negative')
           // A week. Longer than this is a data-entry mistake, not a recipe.
           .max(168, 'Lead time must be 168 hours (7 days) or fewer'),
+        timing: z.enum(PrepTiming).default(PrepTiming.EXACT),
       }),
     )
     .default([]),
+})
+
+/**
+ * On update, each prep step may carry the `id` it already has.
+ *
+ * This is what keeps a `PrepItem` row *alive* across an edit instead of
+ * deleting it and making a new one. It matters because `TodoItem` points at
+ * prep items, and a todo's `status` — including a deliberate CANCELLED — is
+ * attached to that row. Recreate the row and the user's decision is gone.
+ *
+ * Omit the id and you get a new step, which is exactly right for one the user
+ * just added in the form.
+ */
+const recipeUpdateSchema = recipeBodySchema.extend({
+  prepItems: z
+    .array(
+      z.object({
+        id: z.string().min(1).optional(),
+        label: z.string().trim().min(1, 'Prep step needs a label').max(120),
+        leadTimeHours: z.coerce
+          .number()
+          .int()
+          .min(0, 'Lead time cannot be negative')
+          .max(168, 'Lead time must be 168 hours (7 days) or fewer'),
+        timing: z.enum(PrepTiming).default(PrepTiming.EXACT),
+      }),
+    )
+    .default([])
+    .refine(
+      (items) => {
+        const ids = items.map((item) => item.id).filter((id): id is string => Boolean(id))
+        return new Set(ids).size === ids.length
+      },
+      'Each prep step id can only appear once',
+    ),
 })
 
 /**
@@ -228,30 +265,62 @@ recipesRouter.put('/recipes/:id', requireAuth, async (req, res) => {
 
   await assertCanModify(id, req.user)
 
-  const body = recipeBodySchema.parse(req.body)
+  const body = recipeUpdateSchema.parse(req.body)
 
   await assertIngredientsExist(body.ingredients.map((line) => line.ingredientId))
+  await assertPrepItemsBelongToRecipe(id, body.prepItems)
 
-  // PUT is a full replace, so the child rows are replaced wholesale rather
-  // than diffed. One transaction, so a failure cannot leave a recipe with no
-  // ingredients.
-  //
-  // Worth knowing: replacing prep items nulls `sourcePrepItemId` on any todo
-  // generated from the old ones (the FK is ON DELETE SET NULL). MP-14's
-  // regeneration is what repairs that, and it runs on plan writes.
   const recipe = await prisma.$transaction(async (tx) => {
+    // Ingredients are still replaced wholesale, and that is fine: a
+    // RecipeIngredient's identity *is* (recipeId, ingredientId), there is no
+    // surrogate id to preserve, and nothing in the schema points at one. Prep
+    // items are the opposite — todos reference them — so they get diffed.
     await tx.recipeIngredient.deleteMany({ where: { recipeId: id } })
-    await tx.prepItem.deleteMany({ where: { recipeId: id } })
 
-    return tx.recipe.update({
+    const keptIds = body.prepItems.map((prep) => prep.id).filter((prepId): prepId is string => Boolean(prepId))
+
+    // Steps the user removed in the form. Done first, so a step being deleted
+    // cannot collide with one being created.
+    await tx.prepItem.deleteMany({ where: { recipeId: id, id: { notIn: keptIds } } })
+
+    for (const prep of body.prepItems) {
+      if (prep.id) {
+        // The row survives. Its todos keep pointing at it, and they keep
+        // their status.
+        await tx.prepItem.update({
+          where: { id: prep.id },
+          data: { label: prep.label, leadTimeHours: prep.leadTimeHours, timing: prep.timing },
+        })
+      } else {
+        await tx.prepItem.create({
+          data: { recipeId: id, label: prep.label, leadTimeHours: prep.leadTimeHours, timing: prep.timing },
+        })
+      }
+    }
+
+    const updated = await tx.recipe.update({
       where: { id },
-      data: {
-        ...toRecipeFields(body),
-        ingredients: { create: body.ingredients },
-        prepItems: { create: body.prepItems },
-      },
+      data: { ...toRecipeFields(body), ingredients: { create: body.ingredients } },
       include: detailInclude,
     })
+
+    // A changed label, lead time or timing mode changes what the todos should
+    // say and when they are due — so every plan entry using this recipe gets
+    // its todos rebuilt.
+    //
+    // This reaches other people's plans too, not just the editor's: a public
+    // recipe can be planned by anyone, and their prep todos should reflect the
+    // recipe as it is now. Because the PrepItem rows survived above,
+    // `regenerateTodosForEntry` finds the existing todos by
+    // (sourceEntryId, sourcePrepItemId) and updates them in place — so a
+    // ticked or cancelled todo keeps its status.
+    const entries = await tx.mealPlanEntry.findMany({ where: { recipeId: id }, include: planEntryTodoInclude })
+
+    for (const entry of entries) {
+      await regenerateTodosForEntry(tx, entry)
+    }
+
+    return updated
   })
 
   res.json({ recipe })
@@ -302,6 +371,38 @@ async function assertCanModify(id: string, user: { id: string; roles: Role[] } |
   if (recipe.createdById !== user.id && !user.roles.includes(Role.ADMIN)) {
     throw forbidden('Only the recipe owner or an admin can change this recipe')
   }
+}
+
+/**
+ * Every supplied prep-step id must already belong to *this* recipe.
+ *
+ * Without this check, `PUT /recipes/mine` could pass another recipe's prep
+ * item id and the update would silently re-parent that row — stealing a step
+ * out of someone else's recipe and dragging its todos along with it. An
+ * unknown id is a 422 rather than a 403, because from the caller's side it is
+ * indistinguishable from a stale form.
+ */
+async function assertPrepItemsBelongToRecipe(
+  recipeId: string,
+  prepItems: { id?: string | undefined }[],
+): Promise<void> {
+  const suppliedIds = prepItems.map((prep) => prep.id).filter((id): id is string => Boolean(id))
+
+  if (suppliedIds.length === 0) return
+
+  const owned = await prisma.prepItem.findMany({
+    where: { id: { in: suppliedIds }, recipeId },
+    select: { id: true },
+  })
+
+  if (owned.length === suppliedIds.length) return
+
+  const ownedIds = new Set(owned.map((row) => row.id))
+  const strangers = suppliedIds.filter((id) => !ownedIds.has(id))
+
+  throw new HttpError(422, 'Validation failed', {
+    prepItems: `Unknown prep step ${strangers.length > 1 ? 'ids' : 'id'} for this recipe: ${strangers.join(', ')}`,
+  })
 }
 
 /**
