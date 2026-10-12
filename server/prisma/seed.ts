@@ -2,7 +2,7 @@ import 'dotenv/config'
 import bcrypt from 'bcryptjs'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../generated/prisma/client.ts'
-import { IngredientCategory, Role, Unit } from '../generated/prisma/enums.ts'
+import { IngredientCategory, PrepTiming, Role, Unit } from '../generated/prisma/enums.ts'
 
 /**
  * Seed data for local development.
@@ -129,7 +129,7 @@ type SeedRecipe = {
   owner: 'admin' | 'cook'
   isPublic: boolean
   ingredients: { name: string; quantity: number; unit: Unit }[]
-  prepItems: { id: string; label: string; leadTimeHours: number }[]
+  prepItems: { id: string; label: string; leadTimeHours: number; timing: PrepTiming }[]
 }
 
 const RECIPES: SeedRecipe[] = [
@@ -160,8 +160,8 @@ const RECIPES: SeedRecipe[] = [
     // Two prep items on purpose: MP-14 must generate two todos with
     // *different* dueAt values from a single plan entry.
     prepItems: [
-      { id: 'seed_prep_chana_soak', label: 'Soak the dried chickpeas', leadTimeHours: 12 },
-      { id: 'seed_prep_chana_paste', label: 'Blitz the ginger-garlic paste', leadTimeHours: 1 },
+      { id: 'seed_prep_chana_soak', label: 'Soak the dried chickpeas', leadTimeHours: 8, timing: PrepTiming.SLOT },
+      { id: 'seed_prep_chana_paste', label: 'Blitz the ginger-garlic paste', leadTimeHours: 1, timing: PrepTiming.EXACT },
     ],
   },
   {
@@ -182,7 +182,7 @@ const RECIPES: SeedRecipe[] = [
       { name: 'Frozen mixed berries', quantity: 70, unit: Unit.GRAM },
       { name: 'Honey', quantity: 1, unit: Unit.TABLESPOON },
     ],
-    prepItems: [{ id: 'seed_prep_oats_soak', label: 'Soak the oats in the fridge', leadTimeHours: 8 }],
+    prepItems: [{ id: 'seed_prep_oats_soak', label: 'Soak the oats in the fridge', leadTimeHours: 8, timing: PrepTiming.SLOT }],
   },
   {
     id: 'seed_recipe_chicken_tikka',
@@ -207,7 +207,7 @@ const RECIPES: SeedRecipe[] = [
       { name: 'Onion', quantity: 1, unit: Unit.PIECE },
       { name: 'Salt', quantity: 1, unit: Unit.TEASPOON },
     ],
-    prepItems: [{ id: 'seed_prep_tikka_marinate', label: 'Marinate the chicken', leadTimeHours: 4 }],
+    prepItems: [{ id: 'seed_prep_tikka_marinate', label: 'Marinate the chicken', leadTimeHours: 4, timing: PrepTiming.EXACT }],
   },
   {
     id: 'seed_recipe_red_lentil_dal',
@@ -231,7 +231,7 @@ const RECIPES: SeedRecipe[] = [
       { name: 'Spinach', quantity: 100, unit: Unit.GRAM },
       { name: 'Salt', quantity: 1, unit: Unit.TEASPOON },
     ],
-    prepItems: [{ id: 'seed_prep_dal_rinse', label: 'Rinse and soak the red lentils', leadTimeHours: 1 }],
+    prepItems: [{ id: 'seed_prep_dal_rinse', label: 'Rinse and soak the red lentils', leadTimeHours: 1, timing: PrepTiming.EXACT }],
   },
   {
     id: 'seed_recipe_black_bean_chilli',
@@ -256,7 +256,7 @@ const RECIPES: SeedRecipe[] = [
       { name: 'Olive oil', quantity: 2, unit: Unit.TABLESPOON },
       { name: 'Salt', quantity: 1, unit: Unit.TEASPOON },
     ],
-    prepItems: [{ id: 'seed_prep_chilli_soak', label: 'Soak the dried black beans', leadTimeHours: 12 }],
+    prepItems: [{ id: 'seed_prep_chilli_soak', label: 'Soak the dried black beans', leadTimeHours: 8, timing: PrepTiming.SLOT }],
   },
   {
     id: 'seed_recipe_paneer_wraps',
@@ -280,7 +280,7 @@ const RECIPES: SeedRecipe[] = [
       { name: 'Lime', quantity: 1, unit: Unit.PIECE },
       { name: 'Coriander', quantity: 10, unit: Unit.GRAM },
     ],
-    prepItems: [{ id: 'seed_prep_paneer_marinate', label: 'Marinate the paneer', leadTimeHours: 2 }],
+    prepItems: [{ id: 'seed_prep_paneer_marinate', label: 'Marinate the paneer', leadTimeHours: 2, timing: PrepTiming.EXACT }],
   },
   // The last two carry NO prep items on purpose: MP-14's todo regeneration has
   // to handle a plan entry that produces zero todos without falling over.
@@ -453,7 +453,17 @@ async function main() {
       ...prepItems.map((prep) =>
         prisma.prepItem.upsert({
           where: { id: prep.id },
-          update: { label: prep.label, leadTimeHours: prep.leadTimeHours, recipeId: id },
+          // Every field the seed owns has to be listed here, not just the ones
+          // that existed when this was written. Leaving `timing` out meant a
+          // re-seed silently kept the old value — the exact failure the
+          // "editing the data converges" claim at the top is supposed to rule
+          // out.
+          update: {
+            label: prep.label,
+            leadTimeHours: prep.leadTimeHours,
+            timing: prep.timing,
+            recipeId: id,
+          },
           create: { ...prep, recipeId: id },
         }),
       ),

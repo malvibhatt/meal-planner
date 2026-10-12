@@ -116,25 +116,60 @@ Recipe          id, name, photoUrl?, notes?, servings,
                 caloriesPerServing, proteinPerServing, carbs?, fat?,
                 createdById, isPublic
 RecipeIngredient  recipeId, ingredientId, quantity, unit      # join table
-PrepItem        id, recipeId, label, leadTimeHours            # "soak beans", 12
+PrepItem        id, recipeId, label, leadTimeHours,
+                timing: EXACT | SLOT                          # "soak beans", 8, SLOT
 MealPlanEntry   id, userId, date, mealType, recipeId, servings
                 UNIQUE(userId, date, mealType, recipeId)
-TodoItem        id, userId, label, dueAt, isDone,
+TodoItem        id, userId, label, dueAt,
+                status: PENDING | DONE | CANCELLED,
+                completedAt?, cancelledAt?,
                 sourceEntryId, sourcePrepItemId               # regenerated, not hand-written
+                UNIQUE(sourceEntryId, sourcePrepItemId)       # how status survives regeneration
 PantryItem      userId, ingredientId                          # "what I have available"
 ```
 
-**The prep-timer rule, stated precisely** (this is the trickiest bit of the app — MP-70):
+**The prep-timer rule, stated precisely** (this is the trickiest bit of the app — settled in MP-14, displayed in MP-70):
 
 Each meal type has a clock time (configurable, default: breakfast 08:00, lunch 13:00, snack 17:00, dinner 20:00).
-For a plan entry on date `D` with meal type `M`, and a prep item with `leadTimeHours = H`:
+There are also two **prep slots** — the times a person is actually free to start a long job: **09:00** and **21:30**.
+
+A prep item carries `leadTimeHours = H` *and* a `timing` mode, because "2 hours before" and "soak for 8 hours" are
+different kinds of instruction:
+
+| `timing` | Rule | Right for |
+|---|---|---|
+| `EXACT` | `dueAt = mealAt - H hours` | Marinating, toasting spices, thawing — `H` is a literal offset |
+| `SLOT` | `dueAt = the latest prep slot at or before (mealAt - H hours)` | Soaking — `H` is a **minimum**, and longer is fine |
 
 ```
 mealAt = D at MEAL_TIMES[M]
-todo.dueAt = mealAt - H hours
+
+EXACT:  dueAt = mealAt - H hours
+SLOT:   dueAt = max{ s in PREP_SLOTS : s <= mealAt - H hours }
 ```
 
-*Tuesday lunch (13:00) + "soak beans, 12h" → dueAt = Monday 01:00.* Hmm — that lands at 1am, not "Monday dinner". So the display rule is: **a todo is shown in the bucket of the last meal slot at or before `dueAt`.** Monday 01:00 falls before Monday breakfast, so it surfaces in **Sunday dinner's** bucket. Decide in MP-70 whether you want strict-time bucketing or "round down to the previous meal slot, minimum one slot of warning" — write the rule down before you code it, and unit-test it.
+**Why `SLOT` exists.** Beans need *at least* 8 hours of soaking; 15 is no worse. Modelling that as an exact
+subtraction produces times nobody is awake for. With `SLOT` and an 8-hour minimum:
+
+- Tuesday **lunch** (13:00) → must start by Tuesday 05:00 → latest slot before that is **Monday 21:30** — put the
+  beans in before bed.
+- Tuesday **dinner** (20:00) → must start by Tuesday 12:00 → latest slot before that is **Tuesday 09:00** — that
+  morning.
+
+Those are the two cases that define the rule, and both are unit-tested in `server/test/mealTimes.test.ts`, along with
+the invariant that a `SLOT` step is *never* scheduled for less than its minimum.
+
+> **Correction.** An earlier version of this section gave the example *"Tuesday lunch (13:00) + soak beans 12h → dueAt
+> = Monday 01:00"* and reasoned onward to a Sunday dinner bucket. Two things were wrong. The arithmetic: 13:00 minus 12
+> hours is **Tuesday** 01:00, not Monday. And the model: 12 was never meant as an exact figure — it stood for "overnight",
+> which is what `SLOT` now expresses properly.
+
+A todo is **never expired or hidden by time**. It stays on the list, looking as overdue as it is, until the user marks
+it `DONE` or `CANCELLED` — a task that quietly vanishes because its moment passed is how you end up with unsoaked beans.
+
+**Still MP-70's to decide:** which meal-slot *bucket* a todo is displayed under. `dueAt` is now a time a human would
+actually act on, which makes bucketing a presentation choice rather than a workaround — write the rule down before you
+code it.
 
 ---
 
