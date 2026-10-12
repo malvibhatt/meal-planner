@@ -1,6 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../generated/prisma/client.ts'
-import { IngredientCategory, Role, Unit } from '../../generated/prisma/enums.ts'
+import { IngredientCategory, PrepTiming, Role, Unit } from '../../generated/prisma/enums.ts'
 import { hashPassword } from '../../src/auth/password.ts'
 
 /** Its own client, pointed at the test database by vitest.config.ts. */
@@ -53,4 +53,35 @@ export async function createIngredients(names: string[]) {
       }),
     ),
   )
+}
+
+/** A recipe with ingredients and prep items, built directly for speed. */
+export async function createRecipeRow(input: {
+  ownerId: string
+  name: string
+  servings: number
+  caloriesPerServing: number
+  proteinPerServing: number
+  carbsPerServing?: number | null
+  fatPerServing?: number | null
+  ingredients?: { ingredientId: string; quantity: number; unit: Unit }[]
+  prepItems?: { label: string; leadTimeHours: number; timing?: PrepTiming }[]
+}) {
+  return testDb.recipe.create({
+    data: {
+      name: input.name,
+      servings: input.servings,
+      caloriesPerServing: input.caloriesPerServing,
+      proteinPerServing: input.proteinPerServing,
+      carbsPerServing: input.carbsPerServing ?? null,
+      fatPerServing: input.fatPerServing ?? null,
+      isPublic: true,
+      createdById: input.ownerId,
+      ingredients: { create: input.ingredients ?? [] },
+      prepItems: {
+        create: (input.prepItems ?? []).map((prep) => ({ ...prep, timing: prep.timing ?? PrepTiming.EXACT })),
+      },
+    },
+    include: { prepItems: true, ingredients: true },
+  })
 }

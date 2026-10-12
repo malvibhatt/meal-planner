@@ -6,6 +6,9 @@ import { healthRouter } from './routes/health.ts'
 import { authRouter } from './routes/auth.ts'
 import { ingredientsRouter } from './routes/ingredients.ts'
 import { recipesRouter } from './routes/recipes.ts'
+import { mealPlanRouter } from './routes/mealPlan.ts'
+import { shoppingListRouter } from './routes/shoppingList.ts'
+import { todosRouter } from './routes/todos.ts'
 import { UPLOAD_DIR, uploadsRouter } from './routes/uploads.ts'
 import { errorHandler } from './middleware/errorHandler.ts'
 import { notFound } from './middleware/notFound.ts'
@@ -42,6 +45,9 @@ export function createApp() {
   app.use(authRouter)
   app.use(ingredientsRouter)
   app.use(recipesRouter)
+  app.use(mealPlanRouter)
+  app.use(shoppingListRouter)
+  app.use(todosRouter)
   app.use(uploadsRouter)
 
   // Serves the uploaded images back. `index: false` and `dotfiles: 'ignore'`

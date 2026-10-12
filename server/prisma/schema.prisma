@@ -58,6 +58,34 @@ enum Unit {
   PINCH
 }
 
+/// How a prep step's timing is interpreted.
+///
+/// EXACT means "do this N hours before the meal" — a marinade, toasting
+/// spices, taking something out of the freezer. The lead time is a literal
+/// offset.
+///
+/// SLOT means "start this at least N hours before the meal, at a time a person
+/// is actually awake". Soaking beans is the motivating case: 8 hours is a
+/// minimum, not a target, and nobody gets up at 01:00 to start it. The
+/// scheduler rounds back to the latest PREP_SLOT (09:00 or 21:30) that still
+/// satisfies the minimum, so a Tuesday lunch soak becomes "Monday, before
+/// bed" rather than "Tuesday 01:00".
+enum PrepTiming {
+  EXACT
+  SLOT
+}
+
+/// A todo is open, finished, or deliberately dismissed.
+///
+/// CANCELLED exists because "I am not doing this one" is different from "I did
+/// it", and both are different from "not yet". Regeneration preserves all
+/// three, so dismissing a step does not resurrect it on the next plan write.
+enum TodoStatus {
+  PENDING
+  DONE
+  CANCELLED
+}
+
 enum IngredientCategory {
   PRODUCE
   PROTEIN
@@ -167,10 +195,18 @@ model RecipeIngredient {
 
 /// "soak beans, 12h" — the input to the prep-timer rule in §4 / MP-70.
 model PrepItem {
-  id            String @id @default(cuid())
-  recipeId      String
-  label         String
+  id       String @id @default(cuid())
+  recipeId String
+  label    String
+
+  /// With `timing: EXACT` this is a literal offset; with `timing: SLOT` it is
+  /// a *minimum* and the real time is rounded back to a human-friendly slot.
   leadTimeHours Int
+
+  /// EXACT by default: a literal offset is the unsurprising reading of "2
+  /// hours before", and a step only becomes slot-scheduled when someone says
+  /// so. See the PrepTiming docs for why soaks need the other mode.
+  timing PrepTiming @default(EXACT)
 
   recipe Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   todos  TodoItem[]
@@ -206,16 +242,18 @@ model MealPlanEntry {
 /// Derived, not hand-written: MP-14 regenerates these whenever the plan is
 /// written. The two `source*` columns are what make regeneration idempotent —
 /// the unique index below lets the regenerator upsert "the todo for this prep
-/// item of this plan entry", which is how a ticked `isDone` survives a
+/// item of this plan entry", which is how a todo's `status` survives a
 /// rewrite instead of being wiped.
 model TodoItem {
   id     String @id @default(cuid())
   userId String
 
-  label       String
-  dueAt       DateTime
-  isDone      Boolean   @default(false)
+  label String
+  dueAt DateTime
+
+  status      TodoStatus @default(PENDING)
   completedAt DateTime?
+  cancelledAt DateTime?
 
   sourceEntryId    String?
   sourcePrepItemId String?
