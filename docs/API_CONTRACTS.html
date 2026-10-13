@@ -1,0 +1,1448 @@
+<meta charset="utf-8">
+<title>Meal Planner API Contracts</title>
+<style>
+  /* ---------- tokens: light is the base, both dark paths override ----------
+     Same palette as SETUP_GUIDE.html and git-visual-guide.html, so the three
+     documents read as one set. Method/status colours are added on top.      */
+  :root {
+    --ground:#F2F5F4; --surface:#FFFFFF; --surface-2:#E7ECEB; --rule:#D2DBD9;
+    --ink:#101E1C; --ink-2:#425451; --ink-3:#6C7E7B;
+    --accent:#0E6F6A; --accent-soft:#D9EAE8;
+    --do:#0D6484;      --do-soft:#DAEAF2;
+    --why:#474CA0;     --why-soft:#E2E3F4;
+    --amber:#875600;   --amber-soft:#F6EBD4;
+    --watch:#9E3B26;   --watch-soft:#F5E1DB;
+    --code-bg:#0E1C1B; --code-ink:#D2E3E0; --code-rule:#24403D;
+    --shadow:0 1px 2px rgba(16,30,28,.05), 0 8px 24px -12px rgba(16,30,28,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#0B1413; --surface:#111C1B; --surface-2:#182523; --rule:#223331;
+      --ink:#E3EDEB; --ink-2:#A1B3B0; --ink-3:#788A87;
+      --accent:#4DB7AE; --accent-soft:#12312E;
+      --do:#57AFCB;      --do-soft:#0F2B35;
+      --why:#9297E2;     --why-soft:#1D1F3F;
+      --amber:#D9A64A;   --amber-soft:#33250A;
+      --watch:#E08B73;   --watch-soft:#381E17;
+      --code-bg:#070F0E; --code-ink:#CBDDDA; --code-rule:#1C302E;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0B1413; --surface:#111C1B; --surface-2:#182523; --rule:#223331;
+    --ink:#E3EDEB; --ink-2:#A1B3B0; --ink-3:#788A87;
+    --accent:#4DB7AE; --accent-soft:#12312E;
+    --do:#57AFCB;      --do-soft:#0F2B35;
+    --why:#9297E2;     --why-soft:#1D1F3F;
+    --amber:#D9A64A;   --amber-soft:#33250A;
+    --watch:#E08B73;   --watch-soft:#381E17;
+    --code-bg:#070F0E; --code-ink:#CBDDDA; --code-rule:#1C302E;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- shell: sticky contents beside the content ---------- */
+  .shell {
+    display:grid; grid-template-columns:17rem minmax(0,1fr); gap:3.5rem;
+    max-width:80rem; margin:0 auto; padding:2.5rem 1.5rem 6rem;
+  }
+  @media (max-width:64rem) {
+    .shell { grid-template-columns:minmax(0,1fr); gap:2rem; padding-top:1.5rem; }
+    .side { position:static; max-height:none; }
+  }
+
+  /* ---------- masthead ---------- */
+  .mast { grid-column:1/-1; margin:0 0 1rem; }
+  .eyebrow {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 .6rem; font-weight:600;
+  }
+  .mast h1 {
+    font-size:clamp(2rem,4.5vw,2.9rem); line-height:1.08; letter-spacing:-.025em;
+    margin:0 0 .8rem; text-wrap:balance; font-weight:660;
+  }
+  .standfirst {
+    margin:0; color:var(--ink-2); font-size:1.05rem; max-width:62ch; text-wrap:pretty;
+  }
+  .mast > p {
+    margin:.7rem 0; color:var(--ink-2); max-width:68ch; text-wrap:pretty;
+  }
+  .mast > p:first-of-type { font-size:1.05rem; }
+  .mast > ul {
+    margin:1rem 0 0; padding-left:1.15rem; max-width:68ch;
+    color:var(--ink-2); font-size:.94rem;
+  }
+  .mast > ul li { margin:.25rem 0; }
+  .mast :not(pre) > code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.86em; background:var(--surface-2); border:1px solid var(--rule);
+    border-radius:4px; padding:.08em .34em; color:var(--ink);
+  }
+
+  .mast .meta {
+    display:flex; flex-wrap:wrap; gap:.5rem; margin:1.4rem 0 0; padding:0; list-style:none;
+  }
+  .mast .meta li {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.74rem; background:var(--surface); border:1px solid var(--rule);
+    border-radius:999px; padding:.3rem .75rem; color:var(--ink-2);
+  }
+  .mast .meta b { color:var(--ink); font-weight:600; }
+
+  /* ---------- contents ---------- */
+  .side { position:sticky; top:1.5rem; align-self:start; max-height:calc(100vh - 3rem); overflow-y:auto; }
+  .side h2 {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.68rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:600; margin:0 0 .7rem;
+  }
+  .side ul { list-style:none; margin:0; padding:0; }
+  .side a {
+    display:flex; align-items:center; gap:.45rem; text-decoration:none;
+    color:var(--ink-2); padding:.24rem .5rem; border-radius:5px;
+    border-left:2px solid transparent; font-size:.86rem; line-height:1.35;
+  }
+  .side a:hover { background:var(--surface); color:var(--ink); }
+  .side a:target, .side a.here { color:var(--accent); }
+  .side .lvl2 > a { font-weight:620; color:var(--ink); margin-top:.7rem; font-size:.9rem; }
+  .side .lvl3 > a { padding-left:.9rem; border-left:2px solid var(--rule); border-radius:0 5px 5px 0; }
+  .side .lvl3 > a:hover { border-left-color:var(--accent); }
+
+  /* ---------- content typography ---------- */
+  .doc { min-width:0; }
+  .doc > h2 {
+    margin:3.2rem 0 1.1rem; padding-top:1.6rem; border-top:1px solid var(--rule);
+    font-size:1.5rem; letter-spacing:-.02em; font-weight:660; text-wrap:balance;
+  }
+  .doc > h2:first-child { margin-top:0; padding-top:0; border-top:none; }
+  .doc h3 {
+    margin:2.2rem 0 .7rem; font-size:1.1rem; letter-spacing:-.012em; font-weight:640;
+    text-wrap:balance;
+  }
+  .doc h4 { margin:1.6rem 0 .5rem; font-size:.95rem; font-weight:640; }
+  .doc p { margin:.8rem 0; max-width:74ch; text-wrap:pretty; }
+  .doc ul, .doc ol { margin:.8rem 0; padding-left:1.3rem; max-width:74ch; }
+  .doc li { margin:.3rem 0; }
+  .doc li > p { margin:.35rem 0; }
+  .doc strong { font-weight:640; }
+  .doc hr { border:none; border-top:1px solid var(--rule); margin:2.6rem 0; }
+
+  .anchor {
+    margin-left:.5rem; color:var(--ink-3); text-decoration:none; font-weight:400;
+    opacity:0; transition:opacity .12s; font-size:.8em;
+  }
+  h2:hover > .anchor, h3:hover > .anchor { opacity:1; }
+  .anchor:hover { color:var(--accent); }
+
+  /* ---------- links ---------- */
+  .doc a:not(.anchor) { color:var(--accent); text-decoration-thickness:1px; text-underline-offset:2px; }
+
+  /* ---------- inline code and blocks ---------- */
+  .doc :not(pre) > code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.86em; background:var(--surface-2); border:1px solid var(--rule);
+    border-radius:4px; padding:.08em .34em; color:var(--ink);
+  }
+  pre {
+    background:var(--code-bg); color:var(--code-ink);
+    border:1px solid var(--code-rule); border-radius:8px;
+    padding:.9rem 1.1rem; margin:.9rem 0; overflow-x:auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.82rem; line-height:1.6;
+  }
+  pre code { background:none; border:none; padding:0; color:inherit; font-size:inherit; }
+
+  /* ---------- tables ---------- */
+  .tablewrap {
+    overflow-x:auto; margin:1rem 0; background:var(--surface);
+    border:1px solid var(--rule); border-radius:8px; box-shadow:var(--shadow);
+  }
+  table { border-collapse:collapse; width:100%; font-size:.88rem; min-width:30rem; }
+  thead tr { background:var(--surface-2); }
+  th {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.66rem; letter-spacing:.11em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:600; text-align:left;
+    padding:.6rem .85rem; border-bottom:1.5px solid var(--rule); white-space:nowrap;
+  }
+  td {
+    text-align:left; padding:.6rem .85rem; border-bottom:1px solid var(--rule);
+    vertical-align:top; color:var(--ink-2);
+  }
+  tbody tr:last-child td { border-bottom:none; }
+  td code { white-space:nowrap; }
+  td strong { color:var(--ink); }
+
+  /* ---------- method badges ---------- */
+  .m {
+    display:inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.68rem; font-weight:700; letter-spacing:.06em;
+    padding:.2rem .5rem; border-radius:5px; border:1px solid currentColor;
+    white-space:nowrap; line-height:1.3;
+  }
+  .m-get    { color:var(--do);     background:var(--do-soft); }
+  .m-post   { color:var(--accent); background:var(--accent-soft); }
+  .m-put    { color:var(--amber);  background:var(--amber-soft); }
+  .m-patch  { color:var(--why);    background:var(--why-soft); }
+  .m-delete { color:var(--watch);  background:var(--watch-soft); }
+
+  /* ---------- status chips ---------- */
+  .code {
+    display:inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.74rem; font-weight:700; padding:.14rem .45rem; border-radius:4px;
+    border:1px solid currentColor;
+  }
+  .code-ok   { color:var(--accent); background:var(--accent-soft); }
+  .code-info { color:var(--do);     background:var(--do-soft); }
+  .code-warn { color:var(--amber);  background:var(--amber-soft); }
+  .code-bad  { color:var(--watch);  background:var(--watch-soft); }
+
+  /* ---------- endpoint headers ---------- */
+  h3.endpoint {
+    display:flex; align-items:center; gap:.65rem; flex-wrap:wrap;
+    margin:2.6rem 0 .8rem; padding:.6rem .9rem;
+    background:var(--surface); border:1px solid var(--rule);
+    border-left:3px solid var(--accent); border-radius:7px;
+    box-shadow:var(--shadow); scroll-margin-top:1.5rem;
+  }
+  h3.endpoint .path {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:.98rem; font-weight:600; color:var(--ink); word-break:break-all;
+  }
+  h3.endpoint .anchor { margin-left:auto; }
+
+  /* ---------- callouts ---------- */
+  .callout {
+    margin:1.2rem 0; padding:.85rem 1.1rem; max-width:74ch;
+    background:var(--surface); border:1px solid var(--rule);
+    border-left:3px solid var(--ink-3); border-radius:7px;
+  }
+  .callout > :first-child { margin-top:0; }
+  .callout > :last-child { margin-bottom:0; }
+  .callout p { font-size:.94rem; color:var(--ink-2); }
+  .callout h3 {
+    margin:0 0 .5rem; font-size:.96rem; font-weight:660; color:var(--ink);
+    display:flex; align-items:center; gap:.4rem;
+  }
+  .callout h3 .anchor { display:none; }
+  .callout.watch { border-left-color:var(--watch); background:var(--watch-soft); }
+  .callout.watch p, .callout.watch li { color:var(--ink); }
+  .callout.watch h3 { color:var(--watch); }
+  .callout.watch h3::before { content:"⚠"; font-size:1.05em; }
+  .callout.watch :not(pre) > code { background:var(--surface); }
+
+  h2:target, h3:target { scroll-margin-top:1.5rem; }
+
+  @media print {
+    .side { display:none; }
+    .shell { grid-template-columns:1fr; }
+    pre, .tablewrap { break-inside:avoid; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="mast">
+    <p class="eyebrow">Meal Planner · backend reference</p>
+    <h1>API contracts</h1>
+    <p>Every endpoint the server exposes, as of <code>server-v1.0.0</code> (Phase 1 complete).</p>
+<p>Written for the frontend tickets: this is the contract MP-20 → MP-82 consume. The JSON in here was
+<strong>captured from a running server against the seed data</strong>, not written by hand, so the field names and
+shapes are the real ones.</p>
+<ul>
+<li>Base URL in development: <code>http://localhost:4000</code></li>
+<li>Everything is JSON except <code>POST /uploads</code>, which is <code>multipart/form-data</code></li>
+<li>Dates in paths and query strings are <code>YYYY-MM-DD</code>; timestamps in responses are ISO 8601 UTC</li>
+</ul>
+    <ul class="meta">
+      <li><b>server-v1.0.0</b> · Phase 1 complete</li>
+      <li>Base URL <b>http://localhost:4000</b></li>
+      <li><b>21</b> endpoints</li>
+      <li>Source: <b>docs/API_CONTRACTS.md</b></li>
+    </ul>
+  </header>
+
+  <nav class="side">
+    <h2>Contents</h2>
+    <ul>
+    <li class="lvl2"><a href="#1-conventions"><span>Conventions</span></a></li>
+    <li class="lvl3"><a href="#authentication"><span>Authentication</span></a></li>
+    <li class="lvl3"><a href="#cors"><span>CORS</span></a></li>
+    <li class="lvl3"><a href="#error-shape"><span>Error shape</span></a></li>
+    <li class="lvl3"><a href="#status-codes"><span>Status codes</span></a></li>
+    <li class="lvl3"><a href="#pagination"><span>Pagination</span></a></li>
+    <li class="lvl3"><a href="#date-ranges"><span>Date ranges</span></a></li>
+    <li class="lvl3"><a href="#enums"><span>Enums</span></a></li>
+    <li class="lvl3"><a href="#request-limits"><span>Request limits</span></a></li>
+    <li class="lvl2"><a href="#2-health"><span>Health</span></a></li>
+    <li class="lvl3"><a href="#get-health"><span class="m m-get">GET</span><span>/health</span></a></li>
+    <li class="lvl2"><a href="#3-auth"><span>Auth</span></a></li>
+    <li class="lvl3"><a href="#post-auth-register"><span class="m m-post">POST</span><span>/auth/register</span></a></li>
+    <li class="lvl3"><a href="#post-auth-login"><span class="m m-post">POST</span><span>/auth/login</span></a></li>
+    <li class="lvl3"><a href="#post-auth-refresh"><span class="m m-post">POST</span><span>/auth/refresh</span></a></li>
+    <li class="lvl3"><a href="#post-auth-logout"><span class="m m-post">POST</span><span>/auth/logout</span></a></li>
+    <li class="lvl3"><a href="#get-auth-me"><span class="m m-get">GET</span><span>/auth/me</span></a></li>
+    <li class="lvl2"><a href="#4-ingredients"><span>Ingredients</span></a></li>
+    <li class="lvl3"><a href="#get-ingredients"><span class="m m-get">GET</span><span>/ingredients</span></a></li>
+    <li class="lvl2"><a href="#5-recipes"><span>Recipes</span></a></li>
+    <li class="lvl3"><a href="#visibility"><span>Visibility</span></a></li>
+    <li class="lvl3"><a href="#get-recipes"><span class="m m-get">GET</span><span>/recipes</span></a></li>
+    <li class="lvl3"><a href="#get-recipes-id"><span class="m m-get">GET</span><span>/recipes/:id</span></a></li>
+    <li class="lvl3"><a href="#post-recipes"><span class="m m-post">POST</span><span>/recipes</span></a></li>
+    <li class="lvl3"><a href="#put-recipes-id"><span class="m m-put">PUT</span><span>/recipes/:id</span></a></li>
+    <li class="lvl3"><a href="#delete-recipes-id"><span class="m m-delete">DELETE</span><span>/recipes/:id</span></a></li>
+    <li class="lvl2"><a href="#6-meal-plan"><span>Meal plan</span></a></li>
+    <li class="lvl3"><a href="#get-meal-plan"><span class="m m-get">GET</span><span>/meal-plan</span></a></li>
+    <li class="lvl3"><a href="#post-meal-plan"><span class="m m-post">POST</span><span>/meal-plan</span></a></li>
+    <li class="lvl3"><a href="#delete-meal-plan-id"><span class="m m-delete">DELETE</span><span>/meal-plan/:id</span></a></li>
+    <li class="lvl3"><a href="#get-meal-plan-macros"><span class="m m-get">GET</span><span>/meal-plan/macros</span></a></li>
+    <li class="lvl2"><a href="#7-todos"><span>Todos</span></a></li>
+    <li class="lvl3"><a href="#the-prep-timer-rule"><span>The prep-timer rule</span></a></li>
+    <li class="lvl3"><a href="#status"><span>Status</span></a></li>
+    <li class="lvl3"><a href="#get-todos"><span class="m m-get">GET</span><span>/todos</span></a></li>
+    <li class="lvl3"><a href="#patch-todos-id"><span class="m m-patch">PATCH</span><span>/todos/:id</span></a></li>
+    <li class="lvl2"><a href="#8-shopping-list"><span>Shopping list</span></a></li>
+    <li class="lvl3"><a href="#get-shopping-list"><span class="m m-get">GET</span><span>/shopping-list</span></a></li>
+    <li class="lvl2"><a href="#9-uploads"><span>Uploads</span></a></li>
+    <li class="lvl3"><a href="#post-uploads"><span class="m m-post">POST</span><span>/uploads</span></a></li>
+    <li class="lvl3"><a href="#get-uploads-filename"><span class="m m-get">GET</span><span>/uploads/:filename</span></a></li>
+    <li class="lvl2"><a href="#10-quick-reference"><span>Quick reference</span></a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+<h2 id="1-conventions">1. Conventions<a class="anchor" href="#1-conventions" aria-label="Link to this section">#</a></h2>
+<h3 id="authentication">Authentication<a class="anchor" href="#authentication" aria-label="Link to this section">#</a></h3>
+<p>Two tokens, two jobs. Covered in depth by MP-20 → MP-23.</p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th></th>
+<th>Access token</th>
+<th>Refresh token</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Lifetime</strong></td>
+<td>15 minutes</td>
+<td>7 days</td>
+</tr>
+<tr>
+<td><strong>Travels in</strong></td>
+<td><code>Authorization: Bearer &lt;token&gt;</code></td>
+<td>Cookie <code>mp_refresh</code></td>
+</tr>
+<tr>
+<td><strong>Readable by JS</strong></td>
+<td>Yes — keep it in memory, never <code>localStorage</code></td>
+<td><strong>No</strong> — <code>HttpOnly</code></td>
+</tr>
+<tr>
+<td><strong>Issued by</strong></td>
+<td>register, login, refresh</td>
+<td>register, login, refresh</td>
+</tr>
+</tbody>
+</table></div><p>The refresh cookie is scoped to <code>Path=/auth</code>, so the browser sends it to the auth endpoints <strong>and
+nowhere else</strong>:</p>
+<pre><code>Set-Cookie: mp_refresh=&lt;jwt&gt;; Max-Age=604800; Path=/auth; Expires=...; HttpOnly; SameSite=Lax
+</code></pre>
+<p><code>secure</code> is added in production. <code>SameSite=Lax</code> works in development because <code>localhost:5173</code> and
+<code>localhost:4000</code> are the same site — ports are not part of a site. A deployment across two domains
+would need <code>SameSite=None; Secure</code>.</p>
+<p><strong>Every endpoint below requires a bearer token except these six:</strong> <code>GET /health</code>,
+<code>POST /auth/register</code>, <code>POST /auth/login</code>, <code>POST /auth/refresh</code>, <code>POST /auth/logout</code>, and
+<code>GET /uploads/:filename</code> (the static image itself — <em>posting</em> an upload does need a token).</p>
+<h3 id="cors">CORS<a class="anchor" href="#cors" aria-label="Link to this section">#</a></h3>
+<p><code>CLIENT_ORIGIN</code> (default <code>http://localhost:5173</code>) is the single allowed origin, with
+<code>Access-Control-Allow-Credentials: true</code>. A wildcard origin is forbidden with credentials, which is
+why the origin is explicit.</p>
+<p>Your axios instance needs <code>withCredentials: true</code> or the refresh cookie is never sent.</p>
+<h3 id="error-shape">Error shape<a class="anchor" href="#error-shape" aria-label="Link to this section">#</a></h3>
+<p>Every error is JSON — including 404s for routes that do not exist, so an error interceptor never has
+to parse HTML.</p>
+<pre><code class="language-json">{ &quot;message&quot;: &quot;Human-readable summary&quot; }
+</code></pre>
+<p>Validation failures add a <code>errors</code> object keyed by field name:</p>
+<pre><code class="language-json">{
+  &quot;message&quot;: &quot;Validation failed&quot;,
+  &quot;errors&quot;: {
+    &quot;name&quot;: &quot;Name is required&quot;,
+    &quot;servings&quot;: &quot;Servings must be at least 1&quot;,
+    &quot;caloriesPerServing&quot;: &quot;Calories cannot be negative&quot;,
+    &quot;ingredients&quot;: &quot;Add at least one ingredient&quot;
+  }
+}
+</code></pre>
+<p>Field keys are dotted for nested paths, with the <strong>array index included</strong> — a bad quantity on the
+second ingredient row comes back as:</p>
+<pre><code class="language-json">{ &quot;message&quot;: &quot;Validation failed&quot;, &quot;errors&quot;: { &quot;ingredients.1.quantity&quot;: &quot;Quantity must be greater than zero&quot; } }
+</code></pre>
+<p>One message per key — the first problem found for that key wins, because a form shows one message per
+input. MP-42's AC about highlighting a specific row depends on this format.</p>
+<h3 id="status-codes">Status codes<a class="anchor" href="#status-codes" aria-label="Link to this section">#</a></h3>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+<th>Notes for the frontend</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="code code-ok">200</span></td>
+<td>OK</td>
+<td></td>
+</tr>
+<tr>
+<td><span class="code code-ok">201</span></td>
+<td>Created</td>
+<td>register, create recipe, create plan entry, upload</td>
+</tr>
+<tr>
+<td><span class="code code-ok">204</span></td>
+<td>No content</td>
+<td>logout, delete recipe, delete plan entry — <strong>no body, do not parse one</strong></td>
+</tr>
+<tr>
+<td><span class="code code-warn">401</span></td>
+<td>Not authenticated</td>
+<td>&quot;I do not know who you are&quot; → try refresh, then redirect to login</td>
+</tr>
+<tr>
+<td><span class="code code-warn">403</span></td>
+<td>Authenticated but not allowed</td>
+<td>&quot;I know, and the answer is no&quot; → show the forbidden page, <strong>never</strong> retry</td>
+</tr>
+<tr>
+<td><span class="code code-warn">404</span></td>
+<td>Not found</td>
+<td>Also returned for things you are not allowed to see, so ids cannot be probed</td>
+</tr>
+<tr>
+<td><span class="code code-warn">409</span></td>
+<td>Conflict</td>
+<td>Duplicate email; same recipe already in that meal slot</td>
+</tr>
+<tr>
+<td><span class="code code-warn">422</span></td>
+<td>Validation failed</td>
+<td>Carries <code>errors</code> — drop them onto form fields</td>
+</tr>
+<tr>
+<td><span class="code code-bad">500</span></td>
+<td>Server bug</td>
+<td><code>detail</code> is included outside production only</td>
+</tr>
+</tbody>
+</table></div><p><strong>401 vs 403 is load-bearing.</strong> MP-23's interceptor refreshes on 401 and retries once; a 403 means
+the retry would fail identically. MP-24 and MP-25 depend on the distinction too.</p>
+<h3 id="pagination">Pagination<a class="anchor" href="#pagination" aria-label="Link to this section">#</a></h3>
+<p>List endpoints that can grow return one envelope:</p>
+<pre><code class="language-json">{
+  &quot;items&quot;: [ ... ],
+  &quot;page&quot;: 1,
+  &quot;pageSize&quot;: 2,
+  &quot;total&quot;: 8,
+  &quot;totalPages&quot;: 4,
+  &quot;hasMore&quot;: true
+}
+</code></pre>
+<p>Query params: <code>page</code> (default <code>1</code>, min <code>1</code>), <code>pageSize</code> (default <code>20</code>, <strong>max <code>100</code></strong> — a larger value
+is a <code>422</code>, not a silent clamp).</p>
+<p><code>total</code> is there so MP-53 can render &quot;page 3 of 12&quot;; <code>hasMore</code> is there so an infinite scroll does not
+have to compute it. <code>GET /ingredients</code> is deliberately <strong>not</strong> paginated — it is a reference list for
+a <code>&lt;select&gt;</code>.</p>
+<h3 id="date-ranges">Date ranges<a class="anchor" href="#date-ranges" aria-label="Link to this section">#</a></h3>
+<p><code>?from=</code> and <code>?to=</code> are both <strong>required</strong> where they appear, inclusive of both ends, and capped at
+<strong>92 days</strong>. A backwards or oversized range is a <code>422</code> on the <code>to</code> field.</p>
+<h3 id="enums">Enums<a class="anchor" href="#enums" aria-label="Link to this section">#</a></h3>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Enum</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Role</code></td>
+<td><code>USER</code>, <code>ADMIN</code></td>
+</tr>
+<tr>
+<td><code>MealType</code></td>
+<td><code>BREAKFAST</code>, <code>LUNCH</code>, <code>SNACK</code>, <code>DINNER</code></td>
+</tr>
+<tr>
+<td><code>Unit</code></td>
+<td><code>GRAM</code>, <code>KILOGRAM</code>, <code>MILLILITRE</code>, <code>LITRE</code>, <code>TEASPOON</code>, <code>TABLESPOON</code>, <code>CUP</code>, <code>PIECE</code>, <code>PINCH</code></td>
+</tr>
+<tr>
+<td><code>IngredientCategory</code></td>
+<td><code>PRODUCE</code>, <code>PROTEIN</code>, <code>DAIRY</code>, <code>GRAIN</code>, <code>LEGUME</code>, <code>SPICE</code>, <code>CONDIMENT</code>, <code>BAKING</code>, <code>FROZEN</code>, <code>OTHER</code></td>
+</tr>
+<tr>
+<td><code>PrepTiming</code></td>
+<td><code>EXACT</code>, <code>SLOT</code></td>
+</tr>
+<tr>
+<td><code>TodoStatus</code></td>
+<td><code>PENDING</code>, <code>DONE</code>, <code>CANCELLED</code></td>
+</tr>
+</tbody>
+</table></div><h3 id="request-limits">Request limits<a class="anchor" href="#request-limits" aria-label="Link to this section">#</a></h3>
+<ul>
+<li>JSON body: <code>1mb</code></li>
+<li>Upload: <code>5mb</code>, one file, image types only</li>
+</ul>
+<hr>
+<h2 id="2-health">2. Health<a class="anchor" href="#2-health" aria-label="Link to this section">#</a></h2>
+<h3 class="endpoint" id="get-health"><span class="m m-get">GET</span><span class="path">/health</span><a class="anchor" href="#get-health" aria-label="Link to this endpoint">#</a></h3>
+<p>No auth, no database. If it answers, the process is up and routing works — that is the whole claim.</p>
+<p><strong>200</strong></p>
+<pre><code class="language-json">{ &quot;ok&quot;: true }
+</code></pre>
+<hr>
+<h2 id="3-auth">3. Auth<a class="anchor" href="#3-auth" aria-label="Link to this section">#</a></h2>
+<h3 class="endpoint" id="post-auth-register"><span class="m m-post">POST</span><span class="path">/auth/register</span><a class="anchor" href="#post-auth-register" aria-label="Link to this endpoint">#</a></h3>
+<p><strong>Request</strong></p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>email</code></td>
+<td>string</td>
+<td>Trimmed, <strong>lowercased</strong>, must be a valid email</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>string</td>
+<td>Min 8 characters</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Trimmed, 1–80 characters</td>
+</tr>
+</tbody>
+</table></div><pre><code class="language-json">{ &quot;email&quot;: &quot;cook@example.com&quot;, &quot;password&quot;: &quot;correct-horse&quot;, &quot;name&quot;: &quot;Everyday Cook&quot; }
+</code></pre>
+<p><strong>201</strong> — also sets the <code>mp_refresh</code> cookie. New users get <code>roles: [&quot;USER&quot;]</code>.</p>
+<pre><code class="language-json">{
+  &quot;user&quot;: {
+    &quot;id&quot;: &quot;cmuzxtvbq0001hr8ohxoj6vak&quot;,
+    &quot;email&quot;: &quot;cook@mealplanner.test&quot;,
+    &quot;name&quot;: &quot;Everyday Cook&quot;,
+    &quot;roles&quot;: [&quot;USER&quot;]
+  },
+  &quot;accessToken&quot;: &quot;&lt;jwt&gt;&quot;
+}
+</code></pre>
+<p><strong>Errors</strong> — <code>409</code> if the email is taken (with <code>errors.email</code> set, so it lands on the field),
+<code>422</code> on validation.</p>
+<aside class="callout">
+<p>Emails are lowercased on the way in, so <code>Me@x.com</code> and <code>me@x.com</code> are the same account.</p>
+</aside>
+<h3 class="endpoint" id="post-auth-login"><span class="m m-post">POST</span><span class="path">/auth/login</span><a class="anchor" href="#post-auth-login" aria-label="Link to this endpoint">#</a></h3>
+<p><strong>Request</strong></p>
+<pre><code class="language-json">{ &quot;email&quot;: &quot;cook@mealplanner.test&quot;, &quot;password&quot;: &quot;password123&quot; }
+</code></pre>
+<p><strong>200</strong> — identical body to register, plus the <code>mp_refresh</code> cookie.</p>
+<p><strong>Errors</strong> — <code>401 { &quot;message&quot;: &quot;Invalid email or password&quot; }</code></p>
+<aside class="callout">
+<p>That error is <strong>identical</strong> whether the email is unknown or the password is wrong, and both paths
+take the same time. Otherwise the login form becomes a way to discover which emails have accounts.
+Do not try to tell the user which half was wrong — the server will not tell you.</p>
+</aside>
+<h3 class="endpoint" id="post-auth-refresh"><span class="m m-post">POST</span><span class="path">/auth/refresh</span><a class="anchor" href="#post-auth-refresh" aria-label="Link to this endpoint">#</a></h3>
+<p>No request body and <strong>no <code>Authorization</code> header</strong> — the cookie alone is the credential. This is what
+MP-23's interceptor calls on a 401, and what recovers the session after a hard refresh loses the
+in-memory access token.</p>
+<p><strong>200</strong> — a fresh access token, and the refresh cookie is re-issued so an active session slides
+forward rather than expiring mid-use.</p>
+<pre><code class="language-json">{ &quot;user&quot;: { &quot;id&quot;: &quot;...&quot;, &quot;email&quot;: &quot;...&quot;, &quot;name&quot;: &quot;...&quot;, &quot;roles&quot;: [&quot;USER&quot;] }, &quot;accessToken&quot;: &quot;&lt;jwt&gt;&quot; }
+</code></pre>
+<p><strong>Errors</strong> — <code>401</code> with no cookie, an expired or tampered cookie, an <em>access</em> token in the cookie, or
+a user who has since been deleted.</p>
+<aside class="callout">
+<p>Known limitation: there is no server-side record of issued refresh tokens, so a stolen one stays
+valid until it expires. Revocation needs a token store — a later ticket.</p>
+</aside>
+<h3 class="endpoint" id="post-auth-logout"><span class="m m-post">POST</span><span class="path">/auth/logout</span><a class="anchor" href="#post-auth-logout" aria-label="Link to this endpoint">#</a></h3>
+<p>No auth required, deliberately: logging out with an already-expired access token must still clear the
+cookie, and a 401 here would strand the user half-logged-in.</p>
+<p><strong>204</strong> — no body. Clears the cookie:</p>
+<pre><code>Set-Cookie: mp_refresh=; Path=/auth; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax
+</code></pre>
+<h3 class="endpoint" id="get-auth-me"><span class="m m-get">GET</span><span class="path">/auth/me</span><a class="anchor" href="#get-auth-me" aria-label="Link to this endpoint">#</a></h3>
+<p>Requires a bearer token. Reads the database rather than echoing the token's claims, so a name or role
+changed ten seconds ago shows up immediately.</p>
+<p><strong>200</strong></p>
+<pre><code class="language-json">{ &quot;user&quot;: { &quot;id&quot;: &quot;...&quot;, &quot;email&quot;: &quot;...&quot;, &quot;name&quot;: &quot;Everyday Cook&quot;, &quot;roles&quot;: [&quot;USER&quot;] } }
+</code></pre>
+<p><strong>Errors</strong> — <code>401</code> with no token, a malformed token, a missing <code>Bearer </code> prefix, or a refresh token
+used in its place.</p>
+<aside class="callout">
+<p><code>roles</code> is an array. MP-25's permission hook should ask &quot;does this include <code>ADMIN</code>?&quot;, not compare a
+single value.</p>
+</aside>
+<hr>
+<h2 id="4-ingredients">4. Ingredients<a class="anchor" href="#4-ingredients" aria-label="Link to this section">#</a></h2>
+<h3 class="endpoint" id="get-ingredients"><span class="m m-get">GET</span><span class="path">/ingredients</span><a class="anchor" href="#get-ingredients" aria-label="Link to this endpoint">#</a></h3>
+<p>The global catalogue. Unpaginated — tens of rows, and the frontend wants all of it to populate a
+select. Ordered by category, then name.</p>
+<p><strong>Query</strong></p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>q</code></td>
+<td>string</td>
+<td>Case-insensitive substring match on name. For MP-42's typeahead</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td><code>IngredientCategory</code></td>
+<td>Exact match</td>
+</tr>
+</tbody>
+</table></div><p><strong>200</strong></p>
+<pre><code class="language-json">{
+  &quot;items&quot;: [
+    { &quot;id&quot;: &quot;cmuzxtvce000ihr8o2lq042l7&quot;, &quot;name&quot;: &quot;Chicken breast&quot;, &quot;defaultUnit&quot;: &quot;GRAM&quot;, &quot;category&quot;: &quot;PROTEIN&quot; },
+    { &quot;id&quot;: &quot;cmuzxtvce000jhr8os8vbf1jk&quot;, &quot;name&quot;: &quot;Chicken thigh&quot;, &quot;defaultUnit&quot;: &quot;GRAM&quot;, &quot;category&quot;: &quot;PROTEIN&quot; }
+  ]
+}
+</code></pre>
+<hr>
+<h2 id="5-recipes">5. Recipes<a class="anchor" href="#5-recipes" aria-label="Link to this section">#</a></h2>
+<h3 id="visibility">Visibility<a class="anchor" href="#visibility" aria-label="Link to this section">#</a></h3>
+<p>A recipe is visible to you if it is <code>isPublic: true</code> <strong>or</strong> you created it. Admins see everything —
+not generosity, but consistency: an admin can delete any recipe, so a 404 on reading one they may
+delete would be a contradiction.</p>
+<p>Visibility is applied as a database filter, so <code>total</code> never counts rows you cannot see.</p>
+<h3 class="endpoint" id="get-recipes"><span class="m m-get">GET</span><span class="path">/recipes</span><a class="anchor" href="#get-recipes" aria-label="Link to this endpoint">#</a></h3>
+<p><strong>Query</strong> — the pagination params, plus:</p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>q</code></td>
+<td>string</td>
+<td>Case-insensitive substring match on recipe name</td>
+</tr>
+<tr>
+<td><code>ingredientIds</code></td>
+<td>comma-separated ids</td>
+<td>Recipes containing <strong>all</strong> of them (AND, not OR)</td>
+</tr>
+</tbody>
+</table></div><aside class="callout">
+<p><code>ingredientIds</code> is AND, so each one you add narrows the list — what a filter UI implies. This is
+<strong>not</strong> MP-51's pantry filter, which goes the other way (recipes whose ingredients are a subset of
+what you have, ranked by how many are missing) and will need its own endpoint.</p>
+</aside>
+<p><strong>200</strong> — the pagination envelope. Items are summaries, with child counts instead of child rows:</p>
+<pre><code class="language-json">{
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: &quot;seed_recipe_chana_masala&quot;,
+      &quot;name&quot;: &quot;Chana Masala&quot;,
+      &quot;photoUrl&quot;: null,
+      &quot;servings&quot;: 4,
+      &quot;caloriesPerServing&quot;: 420,
+      &quot;proteinPerServing&quot;: 18,
+      &quot;carbsPerServing&quot;: 62,
+      &quot;fatPerServing&quot;: 10,
+      &quot;isPublic&quot;: true,
+      &quot;createdById&quot;: &quot;cmuzxtvb90000hr8ovxkcdj5v&quot;,
+      &quot;updatedAt&quot;: &quot;2026-10-12T21:33:10.410Z&quot;,
+      &quot;_count&quot;: { &quot;ingredients&quot;: 11, &quot;prepItems&quot;: 2 }
+    }
+  ],
+  &quot;page&quot;: 1, &quot;pageSize&quot;: 2, &quot;total&quot;: 8, &quot;totalPages&quot;: 4, &quot;hasMore&quot;: true
+}
+</code></pre>
+<h3 class="endpoint" id="get-recipes-id"><span class="m m-get">GET</span><span class="path">/recipes/:id</span><a class="anchor" href="#get-recipes-id" aria-label="Link to this endpoint">#</a></h3>
+<p><strong>200</strong> — the full recipe. This is also the payload MP-42's edit form should load, because
+<code>prepItems[].id</code> is what <code>PUT</code> needs back (see the warning under <code>PUT</code>).</p>
+<pre><code class="language-json">{
+  &quot;recipe&quot;: {
+    &quot;id&quot;: &quot;seed_recipe_chana_masala&quot;,
+    &quot;name&quot;: &quot;Chana Masala&quot;,
+    &quot;photoUrl&quot;: null,
+    &quot;notes&quot;: &quot;The soak is the whole trick...&quot;,
+    &quot;servings&quot;: 4,
+    &quot;caloriesPerServing&quot;: 420,
+    &quot;proteinPerServing&quot;: 18,
+    &quot;carbsPerServing&quot;: 62,
+    &quot;fatPerServing&quot;: 10,
+    &quot;isPublic&quot;: true,
+    &quot;createdById&quot;: &quot;cmuzxtvb90000hr8ovxkcdj5v&quot;,
+    &quot;createdAt&quot;: &quot;2026-10-08T19:36:57.344Z&quot;,
+    &quot;updatedAt&quot;: &quot;2026-10-12T21:33:10.410Z&quot;,
+    &quot;ingredients&quot;: [
+      {
+        &quot;recipeId&quot;: &quot;seed_recipe_chana_masala&quot;,
+        &quot;ingredientId&quot;: &quot;cmuzxtvcd000ghr8oqmnnt2rr&quot;,
+        &quot;quantity&quot;: 15,
+        &quot;unit&quot;: &quot;GRAM&quot;,
+        &quot;ingredient&quot;: {
+          &quot;id&quot;: &quot;cmuzxtvcd000ghr8oqmnnt2rr&quot;,
+          &quot;name&quot;: &quot;Coriander&quot;,
+          &quot;defaultUnit&quot;: &quot;GRAM&quot;,
+          &quot;category&quot;: &quot;PRODUCE&quot;
+        }
+      }
+    ],
+    &quot;prepItems&quot;: [
+      {
+        &quot;id&quot;: &quot;seed_prep_chana_soak&quot;,
+        &quot;recipeId&quot;: &quot;seed_recipe_chana_masala&quot;,
+        &quot;label&quot;: &quot;Soak the dried chickpeas&quot;,
+        &quot;leadTimeHours&quot;: 8,
+        &quot;timing&quot;: &quot;SLOT&quot;
+      },
+      {
+        &quot;id&quot;: &quot;seed_prep_chana_paste&quot;,
+        &quot;recipeId&quot;: &quot;seed_recipe_chana_masala&quot;,
+        &quot;label&quot;: &quot;Blitz the ginger-garlic paste&quot;,
+        &quot;leadTimeHours&quot;: 1,
+        &quot;timing&quot;: &quot;EXACT&quot;
+      }
+    ],
+    &quot;createdBy&quot;: { &quot;id&quot;: &quot;cmuzxtvb90000hr8ovxkcdj5v&quot;, &quot;name&quot;: &quot;Admin Cook&quot; }
+  }
+}
+</code></pre>
+<p>Ingredients are ordered by ingredient name; prep items by lead time descending.</p>
+<p><strong>Errors</strong> — <code>404</code> for an unknown id <strong>and</strong> for someone else's private recipe. A 403 would confirm
+the id is real.</p>
+<h3 class="endpoint" id="post-recipes"><span class="m m-post">POST</span><span class="path">/recipes</span><a class="anchor" href="#post-recipes" aria-label="Link to this endpoint">#</a></h3>
+<p><strong>Request</strong></p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>1–120 chars</td>
+</tr>
+<tr>
+<td><code>photoUrl</code></td>
+<td>string?</td>
+<td>Max 500 chars. Use the URL from <code>POST /uploads</code></td>
+</tr>
+<tr>
+<td><code>notes</code></td>
+<td>string?</td>
+<td>Max 5000 chars</td>
+</tr>
+<tr>
+<td><code>servings</code></td>
+<td>int</td>
+<td>1–50 — how many servings the recipe <strong>yields</strong></td>
+</tr>
+<tr>
+<td><code>caloriesPerServing</code></td>
+<td>int</td>
+<td>0–10000</td>
+</tr>
+<tr>
+<td><code>proteinPerServing</code></td>
+<td>number</td>
+<td>0–1000 (grams)</td>
+</tr>
+<tr>
+<td><code>carbsPerServing</code></td>
+<td>number?</td>
+<td>0–1000</td>
+</tr>
+<tr>
+<td><code>fatPerServing</code></td>
+<td>number?</td>
+<td>0–1000</td>
+</tr>
+<tr>
+<td><code>isPublic</code></td>
+<td>boolean</td>
+<td>Default <code>false</code></td>
+</tr>
+<tr>
+<td><code>ingredients</code></td>
+<td>array</td>
+<td><strong>At least one.</strong> No duplicate <code>ingredientId</code></td>
+</tr>
+<tr>
+<td><code>ingredients[].ingredientId</code></td>
+<td>string</td>
+<td>Must exist in the catalogue</td>
+</tr>
+<tr>
+<td><code>ingredients[].quantity</code></td>
+<td>number</td>
+<td>&gt; 0. Amount for the <strong>whole recipe</strong>, not per serving</td>
+</tr>
+<tr>
+<td><code>ingredients[].unit</code></td>
+<td><code>Unit</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>prepItems</code></td>
+<td>array</td>
+<td>Optional, defaults to <code>[]</code></td>
+</tr>
+<tr>
+<td><code>prepItems[].label</code></td>
+<td>string</td>
+<td>1–120 chars</td>
+</tr>
+<tr>
+<td><code>prepItems[].leadTimeHours</code></td>
+<td>int</td>
+<td>0–168</td>
+</tr>
+<tr>
+<td><code>prepItems[].timing</code></td>
+<td><code>PrepTiming</code></td>
+<td>Default <code>EXACT</code>. See §7</td>
+</tr>
+</tbody>
+</table></div><pre><code class="language-json">{
+  &quot;name&quot;: &quot;Chana Masala&quot;,
+  &quot;servings&quot;: 4,
+  &quot;caloriesPerServing&quot;: 420,
+  &quot;proteinPerServing&quot;: 18,
+  &quot;carbsPerServing&quot;: 62,
+  &quot;fatPerServing&quot;: 10,
+  &quot;isPublic&quot;: true,
+  &quot;ingredients&quot;: [
+    { &quot;ingredientId&quot;: &quot;cmuz...&quot;, &quot;quantity&quot;: 300, &quot;unit&quot;: &quot;GRAM&quot; }
+  ],
+  &quot;prepItems&quot;: [
+    { &quot;label&quot;: &quot;Soak the dried chickpeas&quot;, &quot;leadTimeHours&quot;: 8, &quot;timing&quot;: &quot;SLOT&quot; }
+  ]
+}
+</code></pre>
+<p><strong>201</strong> — <code>{ &quot;recipe&quot;: { ... } }</code>, same shape as <code>GET /recipes/:id</code>.</p>
+<p><strong>Errors</strong></p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Code</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="code code-warn">422</span></td>
+<td>Validation; also an unknown <code>ingredientId</code> (<code>errors.ingredients</code>) or a duplicate one</td>
+</tr>
+</tbody>
+</table></div><p>An <code>id</code> sent inside <code>prepItems</code> here is <strong>ignored</strong> — ids cannot be chosen by the client on create.</p>
+<aside class="callout">
+<p>Quantities are for the whole recipe. 300g of chickpeas for a recipe yielding 4 servings means
+75g per serving, and the shopping list scales accordingly.</p>
+</aside>
+<h3 class="endpoint" id="put-recipes-id"><span class="m m-put">PUT</span><span class="path">/recipes/:id</span><a class="anchor" href="#put-recipes-id" aria-label="Link to this endpoint">#</a></h3>
+<p>Owner or admin only. Full replace of the recipe's fields, with one important exception.</p>
+<p><strong>Request</strong> — same as <code>POST</code>, except each prep step may carry its existing <code>id</code>:</p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>prepItems[].id</code></td>
+<td>string?</td>
+<td><strong>Supplied</strong> → that row is updated in place. <strong>Omitted</strong> → a new step is created. <strong>Missing from the array</strong> → that step is deleted</td>
+</tr>
+</tbody>
+</table></div><aside class="callout watch">
+<h3>MP-42: send <code>prepItems[].id</code> back</h3>
+<p>A <code>TodoItem</code> points at a <code>PrepItem</code>, and the todo's <code>status</code> — including a deliberate <code>CANCELLED</code> —
+lives on that pointer. If the form rebuilds <code>prepItems</code> from scratch without ids, every step is
+deleted and recreated, so:</p>
+<ul>
+<li>every resolved todo is orphaned and a fresh <code>PENDING</code> duplicate appears</li>
+<li>a user's &quot;no, I'm not soaking those&quot; decision is silently undone</li>
+</ul>
+<p>Load the recipe with <code>GET /recipes/:id</code>, keep each <code>prepItems[].id</code>, and send it back. Steps the
+user actually added in the form are the only ones that should have no id.</p>
+<p><code>ingredients</code> need no ids — a <code>RecipeIngredient</code>'s identity <em>is</em> <code>(recipeId, ingredientId)</code> and
+nothing references one, so they are replaced wholesale.</p>
+</aside>
+<p><strong>200</strong> — <code>{ &quot;recipe&quot;: { ... } }</code></p>
+<p>Writing a recipe also <strong>rebuilds the prep todos</strong> of every meal-plan entry using it — including other
+users' plans, since a public recipe can be in anyone's. Statuses are preserved; <code>label</code> and <code>dueAt</code>
+are recomputed.</p>
+<p><strong>Errors</strong></p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Code</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="code code-warn">403</span></td>
+<td>Not the owner and not an admin</td>
+</tr>
+<tr>
+<td><span class="code code-warn">404</span></td>
+<td>Unknown recipe id</td>
+</tr>
+<tr>
+<td><span class="code code-warn">422</span></td>
+<td>Validation; a <code>prepItems[].id</code> that belongs to a different recipe or does not exist (<code>errors.prepItems</code>); the same id twice</td>
+</tr>
+</tbody>
+</table></div><p>Nothing is written when validation fails.</p>
+<h3 class="endpoint" id="delete-recipes-id"><span class="m m-delete">DELETE</span><span class="path">/recipes/:id</span><a class="anchor" href="#delete-recipes-id" aria-label="Link to this endpoint">#</a></h3>
+<p>Owner or admin only.</p>
+<p><strong>204</strong> — no body. Cascades to the recipe's ingredients, prep items and <strong>meal-plan entries</strong>.
+Catalogue ingredients are never deleted.</p>
+<p><strong>Errors</strong> — <code>403</code> not owner/admin, <code>404</code> unknown id.</p>
+<aside class="callout">
+<p>Deleting a recipe erases every plan entry that ever used it. Worth a confirmation dialog —
+MP-44's job.</p>
+</aside>
+<hr>
+<h2 id="6-meal-plan">6. Meal plan<a class="anchor" href="#6-meal-plan" aria-label="Link to this section">#</a></h2>
+<h3 class="endpoint" id="get-meal-plan"><span class="m m-get">GET</span><span class="path">/meal-plan</span><a class="anchor" href="#get-meal-plan" aria-label="Link to this endpoint">#</a></h3>
+<p><strong>Query</strong> — <code>from</code> and <code>to</code>, both required.</p>
+<p><strong>200</strong> — flat and sorted by date then meal type, <strong>not</strong> grouped by day. MP-60's grid has to render
+empty slots anyway, so it builds the week's skeleton itself.</p>
+<pre><code class="language-json">{
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: &quot;cmv5sx5o30000mw8oxxae59sp&quot;,
+      &quot;date&quot;: &quot;2026-10-13T00:00:00.000Z&quot;,
+      &quot;mealType&quot;: &quot;LUNCH&quot;,
+      &quot;servings&quot;: 2,
+      &quot;recipeId&quot;: &quot;seed_recipe_chana_masala&quot;,
+      &quot;recipe&quot;: {
+        &quot;id&quot;: &quot;seed_recipe_chana_masala&quot;,
+        &quot;name&quot;: &quot;Chana Masala&quot;,
+        &quot;photoUrl&quot;: null,
+        &quot;servings&quot;: 4,
+        &quot;caloriesPerServing&quot;: 420,
+        &quot;proteinPerServing&quot;: 18,
+        &quot;carbsPerServing&quot;: 62,
+        &quot;fatPerServing&quot;: 10
+      }
+    }
+  ]
+}
+</code></pre>
+<aside class="callout">
+<p><code>date</code> comes back as a midnight-UTC timestamp because the column is a <code>DATE</code>. Slice the first ten
+characters rather than constructing a local <code>Date</code>, or a negative-offset timezone will show the
+previous day.</p>
+<p>Note the two <code>servings</code>: the entry's (how many you are eating) and the recipe's (how many it
+yields). The ratio is what scales the shopping list.</p>
+</aside>
+<h3 class="endpoint" id="post-meal-plan"><span class="m m-post">POST</span><span class="path">/meal-plan</span><a class="anchor" href="#post-meal-plan" aria-label="Link to this endpoint">#</a></h3>
+<p><strong>Request</strong></p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>date</code></td>
+<td>string</td>
+<td><code>YYYY-MM-DD</code></td>
+</tr>
+<tr>
+<td><code>mealType</code></td>
+<td><code>MealType</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>recipeId</code></td>
+<td>string</td>
+<td>Must be visible to you</td>
+</tr>
+<tr>
+<td><code>servings</code></td>
+<td>int</td>
+<td>1–50, default <code>1</code></td>
+</tr>
+</tbody>
+</table></div><p><strong>201</strong></p>
+<pre><code class="language-json">{ &quot;entry&quot;: { &quot;id&quot;: &quot;...&quot;, &quot;date&quot;: &quot;...&quot;, &quot;mealType&quot;: &quot;LUNCH&quot;, &quot;servings&quot;: 2, &quot;recipeId&quot;: &quot;...&quot;, &quot;recipe&quot;: { ... } } }
+</code></pre>
+<p>Creating an entry <strong>generates the prep todos</strong> for the recipe's prep steps, in the same transaction.</p>
+<p><strong>Errors</strong></p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Code</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="code code-warn">409</span></td>
+<td>That recipe is already in that slot for that day</td>
+</tr>
+<tr>
+<td><span class="code code-warn">422</span></td>
+<td>Validation; an unknown or invisible <code>recipeId</code> (<code>errors.recipeId</code>)</td>
+</tr>
+</tbody>
+</table></div><p>Two <em>different</em> recipes in one slot is allowed — the uniqueness is on
+<code>(userId, date, mealType, recipeId)</code>.</p>
+<h3 class="endpoint" id="delete-meal-plan-id"><span class="m m-delete">DELETE</span><span class="path">/meal-plan/:id</span><a class="anchor" href="#delete-meal-plan-id" aria-label="Link to this endpoint">#</a></h3>
+<p><strong>204</strong> — no body. Deletes the entry, removes its <strong><code>PENDING</code></strong> todos, and leaves <code>DONE</code> and
+<code>CANCELLED</code> ones as history with <code>sourceEntryId: null</code>.</p>
+<p><strong>Errors</strong> — <code>404</code> for an unknown id <strong>and</strong> for another user's entry.</p>
+<h3 class="endpoint" id="get-meal-plan-macros"><span class="m m-get">GET</span><span class="path">/meal-plan/macros</span><a class="anchor" href="#get-meal-plan-macros" aria-label="Link to this endpoint">#</a></h3>
+<p>Daily totals, computed in SQL with a single <code>GROUP BY ROLLUP</code>.</p>
+<p><strong>Query</strong> — <code>date</code> (<code>YYYY-MM-DD</code>), required.</p>
+<p><strong>200</strong></p>
+<pre><code class="language-json">{
+  &quot;date&quot;: &quot;2026-10-13&quot;,
+  &quot;totals&quot;: { &quot;calories&quot;: 840, &quot;protein&quot;: 36, &quot;carbs&quot;: 124, &quot;fat&quot;: 20, &quot;entries&quot;: 1 },
+  &quot;byMealType&quot;: [
+    { &quot;mealType&quot;: &quot;LUNCH&quot;, &quot;calories&quot;: 840, &quot;protein&quot;: 36, &quot;carbs&quot;: 124, &quot;fat&quot;: 20, &quot;entries&quot;: 1 }
+  ]
+}
+</code></pre>
+<p><code>byMealType</code> contains only meals with entries, so an empty day gives <code>[]</code> and zeroed totals rather
+than four empty rows. Calories are whole numbers; macros are rounded to one decimal. A recipe with
+<code>null</code> carbs or fat contributes <code>0</code>, not <code>null</code>.</p>
+<hr>
+<h2 id="7-todos">7. Todos<a class="anchor" href="#7-todos" aria-label="Link to this section">#</a></h2>
+<p>Todos are <strong>derived, never hand-written</strong>. They are generated from a meal-plan entry's recipe's prep
+steps, and regenerated whenever the plan or the recipe is written.</p>
+<h3 id="the-prep-timer-rule">The prep-timer rule<a class="anchor" href="#the-prep-timer-rule" aria-label="Link to this section">#</a></h3>
+<p>Each meal has a clock time (breakfast 08:00, lunch 13:00, snack 17:00, dinner 20:00 — <strong>UTC</strong>, see
+the caveat below). Each prep step has <code>leadTimeHours</code> and a <code>timing</code> mode:</p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th><code>timing</code></th>
+<th><code>dueAt</code></th>
+<th>Right for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EXACT</code></td>
+<td><code>mealAt - leadTimeHours</code></td>
+<td>Marinating, toasting spices, thawing — a literal offset</td>
+</tr>
+<tr>
+<td><code>SLOT</code></td>
+<td>the latest <strong>prep slot</strong> (09:00 or 21:30) at or before <code>mealAt - leadTimeHours</code></td>
+<td>Soaking — the lead time is a <strong>minimum</strong>, and longer is fine</td>
+</tr>
+</tbody>
+</table></div><p>With an 8-hour minimum and <code>SLOT</code>:</p>
+<ul>
+<li>Tuesday <strong>lunch</strong> → <strong>Monday 21:30</strong>, before bed</li>
+<li>Tuesday <strong>dinner</strong> → <strong>Tuesday 09:00</strong>, that morning</li>
+</ul>
+<p>A <code>SLOT</code> step is never scheduled for less than its minimum. See <code>server/test/mealTimes.test.ts</code>.</p>
+<aside class="callout">
+<p><strong>Timezone caveat.</strong> Meal times and prep slots are UTC, because <code>date</code> is a timezone-less calendar
+day and combining the two needs <em>some</em> zone. A user in IST sees &quot;lunch 13:00&quot; meaning 18:30 local.
+Fixing it means storing a timezone per user — a real feature, not a display tweak.</p>
+</aside>
+<h3 id="status">Status<a class="anchor" href="#status" aria-label="Link to this section">#</a></h3>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PENDING</code></td>
+<td>Not yet dealt with</td>
+</tr>
+<tr>
+<td><code>DONE</code></td>
+<td>Finished — <code>completedAt</code> set</td>
+</tr>
+<tr>
+<td><code>CANCELLED</code></td>
+<td>Deliberately dismissed — <code>cancelledAt</code> set</td>
+</tr>
+</tbody>
+</table></div><p>Regeneration <strong>never</strong> touches <code>status</code>, <code>completedAt</code> or <code>cancelledAt</code>. A ticked or dismissed todo
+keeps its state through any number of plan or recipe writes. <code>completedAt</code> and <code>cancelledAt</code> are
+mutually exclusive — each is cleared when the status changes to anything else.</p>
+<p><strong>Nothing expires a todo.</strong> An overdue soak stays on the list, looking as overdue as it is, until the
+user resolves it. A task that vanishes because its moment passed is how you end up with unsoaked
+beans.</p>
+<h3 class="endpoint" id="get-todos"><span class="m m-get">GET</span><span class="path">/todos</span><a class="anchor" href="#get-todos" aria-label="Link to this endpoint">#</a></h3>
+<p><strong>Query</strong></p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>from</code></td>
+<td><code>YYYY-MM-DD</code>?</td>
+<td><strong>Optional</strong> here, unlike elsewhere</td>
+</tr>
+<tr>
+<td><code>to</code></td>
+<td><code>YYYY-MM-DD</code>?</td>
+<td>Inclusive of the whole day, not its midnight</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>TodoStatus</code>?</td>
+<td>Omitted means everything — a history view. <code>?status=PENDING</code> is &quot;what is outstanding&quot;</td>
+</tr>
+</tbody>
+</table></div><p><strong>200</strong> — ordered by <code>dueAt</code>, then label.</p>
+<pre><code class="language-json">{
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: &quot;cmv5sx5o90001mw8o7fs4fvyp&quot;,
+      &quot;label&quot;: &quot;Soak the dried chickpeas — Chana Masala&quot;,
+      &quot;dueAt&quot;: &quot;2026-10-12T21:30:00.000Z&quot;,
+      &quot;status&quot;: &quot;PENDING&quot;,
+      &quot;completedAt&quot;: null,
+      &quot;cancelledAt&quot;: null,
+      &quot;sourceEntryId&quot;: &quot;cmv5sx5o30000mw8oxxae59sp&quot;,
+      &quot;sourcePrepItemId&quot;: &quot;seed_prep_chana_soak&quot;
+    }
+  ]
+}
+</code></pre>
+<aside class="callout">
+<p>Filtering is on <strong><code>dueAt</code>, not the meal's date</strong>. A soak for Tuesday lunch is <em>Monday's</em> job, so
+asking for Monday finds it and asking for Tuesday does not. That is the whole point of the feature
+— do not &quot;correct&quot; it by filtering on the plan date.</p>
+<p><code>label</code> already includes the recipe name (<code>&quot;Soak the chickpeas — Chana Masala&quot;</code>), so MP-70 does not
+need to join anything to render a useful line.</p>
+</aside>
+<h3 class="endpoint" id="patch-todos-id"><span class="m m-patch">PATCH</span><span class="path">/todos/:id</span><a class="anchor" href="#patch-todos-id" aria-label="Link to this endpoint">#</a></h3>
+<p><strong>Request</strong> — <code>status</code> is the only writable field. Labels and due dates are derived; an edit to them
+would be overwritten by the next regeneration.</p>
+<pre><code class="language-json">{ &quot;status&quot;: &quot;DONE&quot; }
+</code></pre>
+<p><strong>200</strong></p>
+<pre><code class="language-json">{
+  &quot;todo&quot;: {
+    &quot;id&quot;: &quot;...&quot;,
+    &quot;label&quot;: &quot;Soak the dried chickpeas — Chana Masala&quot;,
+    &quot;dueAt&quot;: &quot;2026-10-12T21:30:00.000Z&quot;,
+    &quot;status&quot;: &quot;DONE&quot;,
+    &quot;completedAt&quot;: &quot;2026-10-12T17:18:23.014Z&quot;,
+    &quot;cancelledAt&quot;: null
+  }
+}
+</code></pre>
+<p><strong>Errors</strong> — <code>404</code> unknown id or another user's todo; <code>422</code> missing or invalid <code>status</code>.</p>
+<p>Any other field in the body is ignored.</p>
+<hr>
+<h2 id="8-shopping-list">8. Shopping list<a class="anchor" href="#8-shopping-list" aria-label="Link to this section">#</a></h2>
+<h3 class="endpoint" id="get-shopping-list"><span class="m m-get">GET</span><span class="path">/shopping-list</span><a class="anchor" href="#get-shopping-list" aria-label="Link to this endpoint">#</a></h3>
+<p>Everything to buy for the meals planned in a range, aggregated in SQL.</p>
+<p><strong>Query</strong> — <code>from</code> and <code>to</code>, both required.</p>
+<p><strong>200</strong> — ordered by category, then name.</p>
+<pre><code class="language-json">{
+  &quot;from&quot;: &quot;2026-10-13&quot;,
+  &quot;to&quot;: &quot;2026-10-13&quot;,
+  &quot;items&quot;: [
+    {
+      &quot;ingredientId&quot;: &quot;cmuzxtvcd000ghr8oqmnnt2rr&quot;,
+      &quot;name&quot;: &quot;Coriander&quot;,
+      &quot;category&quot;: &quot;PRODUCE&quot;,
+      &quot;unit&quot;: &quot;GRAM&quot;,
+      &quot;quantity&quot;: 7.5,
+      &quot;recipeCount&quot;: 1
+    },
+    {
+      &quot;ingredientId&quot;: &quot;cmuzxtvc60003hr8o5vx8seig&quot;,
+      &quot;name&quot;: &quot;Garlic clove&quot;,
+      &quot;category&quot;: &quot;PRODUCE&quot;,
+      &quot;unit&quot;: &quot;PIECE&quot;,
+      &quot;quantity&quot;: 2,
+      &quot;recipeCount&quot;: 1
+    }
+  ]
+}
+</code></pre>
+<p><strong>Deduped by ingredient <em>and</em> unit.</strong> 200g of yoghurt and 1 tbsp of yoghurt cannot be added, so they
+are two lines — the same <code>ingredientId</code> can appear more than once with different <code>unit</code> values. Do
+not key a list by <code>ingredientId</code> alone.</p>
+<p>Quantities are scaled by <code>entryServings / recipeServings</code> and rounded to two decimals: cooking one
+portion of a four-portion recipe puts a quarter of the chickpeas on the list. <code>recipeCount</code> is how
+many planned recipes contributed to that line.</p>
+<hr>
+<h2 id="9-uploads">9. Uploads<a class="anchor" href="#9-uploads" aria-label="Link to this section">#</a></h2>
+<h3 class="endpoint" id="post-uploads"><span class="m m-post">POST</span><span class="path">/uploads</span><a class="anchor" href="#post-uploads" aria-label="Link to this endpoint">#</a></h3>
+<p><code>multipart/form-data</code> with a single field named <strong><code>file</code></strong>. Requires auth — an open upload endpoint is
+free file hosting for whoever finds it.</p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Limit</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Max size</td>
+<td>5 MB</td>
+</tr>
+<tr>
+<td>Files per request</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Other form fields</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Accepted types</td>
+<td><code>image/jpeg</code>, <code>image/png</code>, <code>image/webp</code>, <code>image/avif</code></td>
+</tr>
+</tbody>
+</table></div><p><strong>201</strong></p>
+<pre><code class="language-json">{
+  &quot;url&quot;: &quot;http://localhost:4000/uploads/f9239614-30ef-4a65-b11f-c24585990f61.png&quot;,
+  &quot;filename&quot;: &quot;f9239614-30ef-4a65-b11f-c24585990f61.png&quot;,
+  &quot;size&quot;: 70
+}
+</code></pre>
+<p>Put <code>url</code> straight into a recipe's <code>photoUrl</code>. It is absolute because an <code>&lt;img src&gt;</code> resolves against
+the <em>page's</em> origin (the Vite dev server), not the API's. The host comes from <code>PUBLIC_URL</code>.</p>
+<p><strong>Errors</strong> — all <code>422</code> with <code>errors.file</code>:</p>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Message</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Upload a JPEG, PNG, WebP or AVIF image</code></td>
+<td>Rejected mime type</td>
+</tr>
+<tr>
+<td><code>File must be 5MB or smaller</code></td>
+<td>Over the size limit</td>
+</tr>
+<tr>
+<td><code>No file was uploaded</code></td>
+<td>No <code>file</code> field</td>
+</tr>
+<tr>
+<td><code>Upload a single image in the &quot;file&quot; field</code></td>
+<td>Wrong field name, too many files</td>
+</tr>
+</tbody>
+</table></div><aside class="callout">
+<p>The filename you send is <strong>discarded</strong>. <code>originalname</code> is attacker-controlled, so the server stores
+a random UUID plus an extension derived from the validated mime type. Do not expect your name back.</p>
+</aside>
+<h3 class="endpoint" id="get-uploads-filename"><span class="m m-get">GET</span><span class="path">/uploads/:filename</span><a class="anchor" href="#get-uploads-filename" aria-label="Link to this endpoint">#</a></h3>
+<p>Serves an uploaded image. No directory listing, no dotfiles, cached for 7 days — filenames are random
+and their content never changes.</p>
+<hr>
+<h2 id="10-quick-reference">10. Quick reference<a class="anchor" href="#10-quick-reference" aria-label="Link to this section">#</a></h2>
+<div class="tablewrap"><table><thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+<th>Success</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="m m-get">GET</span></td>
+<td><code>/health</code></td>
+<td>—</td>
+<td>200</td>
+<td></td>
+</tr>
+<tr>
+<td><span class="m m-post">POST</span></td>
+<td><code>/auth/register</code></td>
+<td>—</td>
+<td>201</td>
+<td>Sets refresh cookie</td>
+</tr>
+<tr>
+<td><span class="m m-post">POST</span></td>
+<td><code>/auth/login</code></td>
+<td>—</td>
+<td>200</td>
+<td>Sets refresh cookie</td>
+</tr>
+<tr>
+<td><span class="m m-post">POST</span></td>
+<td><code>/auth/refresh</code></td>
+<td>cookie</td>
+<td>200</td>
+<td>No bearer token</td>
+</tr>
+<tr>
+<td><span class="m m-post">POST</span></td>
+<td><code>/auth/logout</code></td>
+<td>—</td>
+<td>204</td>
+<td>Clears cookie</td>
+</tr>
+<tr>
+<td><span class="m m-get">GET</span></td>
+<td><code>/auth/me</code></td>
+<td>bearer</td>
+<td>200</td>
+<td>Reads the database</td>
+</tr>
+<tr>
+<td><span class="m m-get">GET</span></td>
+<td><code>/ingredients</code></td>
+<td>bearer</td>
+<td>200</td>
+<td>Unpaginated; <code>?q=</code>, <code>?category=</code></td>
+</tr>
+<tr>
+<td><span class="m m-get">GET</span></td>
+<td><code>/recipes</code></td>
+<td>bearer</td>
+<td>200</td>
+<td>Paginated; <code>?q=</code>, <code>?ingredientIds=</code> (AND)</td>
+</tr>
+<tr>
+<td><span class="m m-get">GET</span></td>
+<td><code>/recipes/:id</code></td>
+<td>bearer</td>
+<td>200</td>
+<td>Load this before editing</td>
+</tr>
+<tr>
+<td><span class="m m-post">POST</span></td>
+<td><code>/recipes</code></td>
+<td>bearer</td>
+<td>201</td>
+<td></td>
+</tr>
+<tr>
+<td><span class="m m-put">PUT</span></td>
+<td><code>/recipes/:id</code></td>
+<td>owner/admin</td>
+<td>200</td>
+<td><strong>Send <code>prepItems[].id</code> back</strong></td>
+</tr>
+<tr>
+<td><span class="m m-delete">DELETE</span></td>
+<td><code>/recipes/:id</code></td>
+<td>owner/admin</td>
+<td>204</td>
+<td>Cascades to plan entries</td>
+</tr>
+<tr>
+<td><span class="m m-get">GET</span></td>
+<td><code>/meal-plan</code></td>
+<td>bearer</td>
+<td>200</td>
+<td><code>?from=&amp;to=</code> required</td>
+</tr>
+<tr>
+<td><span class="m m-post">POST</span></td>
+<td><code>/meal-plan</code></td>
+<td>bearer</td>
+<td>201</td>
+<td>Generates todos</td>
+</tr>
+<tr>
+<td><span class="m m-delete">DELETE</span></td>
+<td><code>/meal-plan/:id</code></td>
+<td>bearer</td>
+<td>204</td>
+<td>Removes pending todos only</td>
+</tr>
+<tr>
+<td><span class="m m-get">GET</span></td>
+<td><code>/meal-plan/macros</code></td>
+<td>bearer</td>
+<td>200</td>
+<td><code>?date=</code> required</td>
+</tr>
+<tr>
+<td><span class="m m-get">GET</span></td>
+<td><code>/shopping-list</code></td>
+<td>bearer</td>
+<td>200</td>
+<td><code>?from=&amp;to=</code> required</td>
+</tr>
+<tr>
+<td><span class="m m-get">GET</span></td>
+<td><code>/todos</code></td>
+<td>bearer</td>
+<td>200</td>
+<td><code>?from=&amp;to=&amp;status=</code>, all optional</td>
+</tr>
+<tr>
+<td><span class="m m-patch">PATCH</span></td>
+<td><code>/todos/:id</code></td>
+<td>bearer</td>
+<td>200</td>
+<td><code>{ status }</code> only</td>
+</tr>
+<tr>
+<td><span class="m m-post">POST</span></td>
+<td><code>/uploads</code></td>
+<td>bearer</td>
+<td>201</td>
+<td><code>multipart/form-data</code>, field <code>file</code></td>
+</tr>
+<tr>
+<td><span class="m m-get">GET</span></td>
+<td><code>/uploads/:filename</code></td>
+<td>—</td>
+<td>200</td>
+<td>Static</td>
+</tr>
+</tbody>
+</table></div>
+  </main>
+
+</div>
