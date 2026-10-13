@@ -5,6 +5,16 @@ Built by someone with 10 years of Angular and one small React app (TrackWise) be
 
 ---
 
+## Companion documents
+
+| Doc | What it is for |
+|---|---|
+| [`API_CONTRACTS.md`](./API_CONTRACTS.md) | Every backend endpoint — request fields and rules, real response shapes, error codes, and the traps that will bite the frontend. The reference for Phases 2–8 |
+| [`GIT_AND_RELEASES.md`](./GIT_AND_RELEASES.md) | Branching, conventional commits, CI and release-please |
+| [`SETUP_JOURNAL.md`](./SETUP_JOURNAL.md) | Running log of what was set up and why |
+
+---
+
 ## 0. How we work
 
 | | |
@@ -107,7 +117,7 @@ Use this to check nothing got skipped. Ticket IDs link to Section 5.
 
 ---
 
-## 4. Data model (sketch — we'll finalise in MP-11)
+## 4. Data model (finalised in MP-11; amended by MP-14 and MP-15)
 
 ```
 User            id, email, passwordHash, name, roles[]
@@ -240,43 +250,69 @@ Format: **ID — Title** · *concepts* · subtasks · acceptance criteria · hin
 
 ---
 
-### PHASE 1 — Backend v1
+### PHASE 1 — Backend v1 ✅ shipped as `server-v1.0.0`
 
 > These are mine to write. Your job is to read the code, ask about anything unclear, and run it. Don't skip the reading — the frontend tickets assume you know the contract.
+>
+> **The contract is written down:** [`API_CONTRACTS.md`](./API_CONTRACTS.md) documents every endpoint — request fields and their rules, response shapes captured from a running server, error codes, and the gotchas that will bite the frontend. Read it before starting Phase 2, and keep it open while you write the API layer in MP-30.
 
 #### MP-10 — Server scaffold
-- [ ] Express 5 + TS + `tsx` watch mode, `server/` folder
-- [ ] Config via `.env` (`DATABASE_URL`, `JWT_SECRET`, `PORT`, `CLIENT_ORIGIN`)
-- [ ] CORS with `credentials: true`, `cookie-parser`, JSON body limit
-- [ ] `GET /health` → `{ ok: true }`
+- [x] Express 5 + TS + `tsx` watch mode, `server/` folder
+- [x] Config via `.env` (`DATABASE_URL`, `JWT_SECRET`, `PORT`, `CLIENT_ORIGIN`)
+- [x] CORS with `credentials: true`, `cookie-parser`, JSON body limit
+- [x] `GET /health` → `{ ok: true }`
 - **AC:** `curl localhost:4000/health` returns 200 JSON; server restarts on save
 
 #### MP-11 — Prisma schema + Postgres
-- [ ] `docker-compose.yml` with Postgres 16 (or point at Homebrew Postgres)
-- [ ] Full schema per Section 4, reviewed by you before migrating
-- [ ] `prisma migrate dev --name init`
-- [ ] Seed script: ~40 ingredients, 8 recipes with prep items, 2 users (admin + regular)
+- [x] `docker-compose.yml` with Postgres 16 (or point at Homebrew Postgres)
+- [x] Full schema per Section 4, reviewed by you before migrating
+- [x] `prisma migrate dev --name init`
+- [x] Seed script: ~40 ingredients, 8 recipes with prep items, 2 users (admin + regular)
 - **AC:** `npx prisma studio` shows seeded data; re-running the seed is idempotent
 
 #### MP-12 — Auth endpoints
-- [ ] `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`
-- [ ] Access token 15min in the JSON body; refresh token 7d in an httpOnly, sameSite cookie
-- [ ] `requireAuth` middleware; `requireRole(...roles)` middleware
+- [x] `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`
+- [x] Access token 15min in the JSON body; refresh token 7d in an httpOnly, sameSite cookie
+- [x] `requireAuth` middleware; `requireRole(...roles)` middleware
 - **AC:** login sets the cookie and returns `{ user, accessToken }`; `/auth/me` 401s without a token; `/auth/refresh` issues a new access token from the cookie alone
 
 #### MP-13 — Recipe + ingredient CRUD
-- [ ] `GET /ingredients`, `GET /recipes` (paginated, `?q=`, `?ingredientIds=`), `GET /recipes/:id`, `POST/PUT/DELETE /recipes`
-- [ ] zod validation → `422 { message, errors: { field: msg } }`
-- [ ] Photo upload: `POST /uploads` (multer, local disk) returning a URL
+- [x] `GET /ingredients`, `GET /recipes` (paginated, `?q=`, `?ingredientIds=`), `GET /recipes/:id`, `POST/PUT/DELETE /recipes`
+- [x] zod validation → `422 { message, errors: { field: msg } }`
+- [x] Photo upload: `POST /uploads` (multer, local disk) returning a URL
 - **AC:** validation failures return the 422 shape the frontend forms expect; delete is owner-or-admin only
 
 #### MP-14 — Plan, todo and aggregation endpoints
-- [ ] `GET/POST/DELETE /meal-plan` (`?from=&to=`)
-- [ ] `GET /meal-plan/macros?date=` — daily macro totals computed in SQL
-- [ ] `GET /shopping-list?from=&to=` — aggregated, deduped by ingredient + unit
-- [ ] `GET /todos?from=&to=`, `PATCH /todos/:id` (toggle done)
-- [ ] Todo regeneration on plan write, preserving `isDone` for surviving todos
-- **AC:** adding a plan entry with prep items creates todos with correct `dueAt`; deleting the entry removes its *undone* todos; macros endpoint matches a hand-calculated example
+- [x] `GET/POST/DELETE /meal-plan` (`?from=&to=`)
+- [x] `GET /meal-plan/macros?date=` — daily macro totals computed in SQL (`GROUP BY ROLLUP`)
+- [x] `GET /shopping-list?from=&to=` — aggregated, deduped by ingredient + unit
+- [x] `GET /todos?from=&to=&status=`, `PATCH /todos/:id` (`{ status }`)
+- [x] Todo regeneration on plan write, preserving `status` for surviving todos
+- **AC:** adding a plan entry with prep items creates todos with correct `dueAt`; deleting the entry removes its *pending* todos; macros endpoint matches a hand-calculated example
+
+Two things changed from the original ticket while building it:
+
+- **`isDone` became `status: PENDING | DONE | CANCELLED`.** "I'm not doing this one" is a different
+  statement from "I did it", and both differ from "not yet". Cancelling is how you dismiss a prep step
+  without pretending you did it.
+- **The prep-timer rule gained a `timing` mode** — see Section 4. Treating every lead time as an exact
+  subtraction scheduled soaks for times nobody is awake for.
+
+#### MP-15 — Keep prep-step ids stable across a recipe edit
+*Not in the original plan — found while building MP-14.*
+
+`PUT /recipes/:id` deleted and recreated every `PrepItem`, so the rows that `TodoItem` points at kept
+changing id. Any todo already ticked or cancelled was orphaned and a fresh `PENDING` duplicate took its
+place — quietly undoing the user's decision every time the recipe was edited.
+
+- [x] `prepItems[].id` is optional on `PUT`: supplied → updated in place, omitted → created, absent from the array → deleted
+- [x] A supplied id must already belong to *this* recipe, or `422` (otherwise you could re-parent another recipe's step)
+- [x] Writing a recipe regenerates the todos of every plan entry using it — including other users' plans, since a public recipe can be in anyone's
+- [x] `POST /recipes` ignores any client-supplied prep id
+- **AC:** a ticked todo and a cancelled todo both survive a recipe edit; dropping a step removes only its *pending* todo; editing a lead time or `timing` moves `dueAt` without touching `status`
+
+> **This one has a frontend obligation — see MP-42.** The fix only works if the edit form sends the ids
+> back. A form that rebuilds `prepItems` from scratch gets the old broken behaviour.
 
 ---
 
@@ -394,6 +430,9 @@ Format: **ID — Title** · *concepts* · subtasks · acceptance criteria · hin
 ### PHASE 3 — API layer & data-fetching hooks
 
 #### MP-30 — Typed API modules
+
+> Work from [`API_CONTRACTS.md`](./API_CONTRACTS.md) — every request field, response shape and error
+> code is written down there, including the pagination envelope and the `422` field-error format.
 *Concepts: feature-first API layer, generics, DTO types*
 
 **Subtasks**
@@ -473,12 +512,30 @@ Format: **ID — Title** · *concepts* · subtasks · acceptance criteria · hin
 
 This is the biggest React ticket in the project. The form has: name, photo, notes, servings, macros, **a variable-length ingredient list** (ingredient + quantity + unit rows, addable/removable), and **a variable-length prep-item list** (label + lead-time-hours rows).
 
+Prep-item rows also carry a `timing` toggle — `EXACT` ("do this N hours before") or `SLOT` ("soak for at least N hours"). See Section 4 for what the two mean.
+
 **Subtasks**
 - [ ] Model the whole form in one `useReducer` — actions like `SET_FIELD`, `ADD_INGREDIENT`, `UPDATE_INGREDIENT`, `REMOVE_INGREDIENT`, `ADD_PREP`, …
 - [ ] Ingredient rows use an autocomplete against `GET /ingredients`
 - [ ] Every dynamic row gets a stable client-generated id as its key (`crypto.randomUUID()`), **not** the array index
+- [ ] **In edit mode, keep each prep row's server `id` and send it back in the `PUT`** — see the warning below
 - [ ] Client validation before submit; map 422 field errors onto rows
 - [ ] Reuse the same component for create and edit (`/recipes/new` and `/recipes/:id/edit`)
+
+> ### ⚠️ Edit mode must round-trip `prepItems[].id`
+>
+> A `TodoItem` points at a `PrepItem`, and whether the user ticked or **cancelled** that todo lives on
+> that pointer. `PUT /recipes/:id` keeps a prep row alive only if you send its `id` back. Rebuild the
+> array from scratch and the server deletes every step and makes new ones — orphaning each resolved
+> todo and replacing it with a fresh `PENDING` duplicate. The user's "no, I'm not soaking those" is
+> silently undone.
+>
+> Careful with the two kinds of id here: the `crypto.randomUUID()` key above is for React's
+> reconciliation and must **not** be sent to the server. The server's `prepItems[].id` is the one to
+> preserve. A row the user just added has a React key but no server id — which is exactly how the
+> server knows to create it.
+>
+> Ingredient rows need no server id: a `RecipeIngredient` is identified by `(recipeId, ingredientId)`.
 
 **Acceptance criteria**
 - [ ] Add three ingredient rows, fill them, delete the **middle** one — the other two keep their values. (With index keys they won't. Try it wrong first, then fix it — this is the reconciliation lesson.)
@@ -486,6 +543,7 @@ This is the biggest React ticket in the project. The form has: name, photo, note
 - [ ] Submitting twice fast creates one recipe
 - [ ] Edit mode pre-populates every field including all dynamic rows
 - [ ] A server 422 on `ingredients[1].quantity` highlights that specific row
+- [ ] Plan a recipe, tick its prep todo, then edit the recipe — the todo is **still ticked** afterwards (this is the MP-15 contract; if it unticks, the form is dropping the ids)
 
 #### MP-43 — Photo upload + accessible fields
 *Concepts: `useRef` on a file input, object URLs, `useId`*
@@ -562,10 +620,24 @@ This is the biggest React ticket in the project. The form has: name, photo, note
 
 #### MP-70 — Prep-timer todo list
 *Concepts: consuming derived server data, date handling, optimistic toggle*
-- [ ] **First:** write the bucketing rule from Section 4 down as prose, agree it, then implement
+
+`dueAt` is already computed server-side by the rule in Section 4, so this ticket is about **display**:
+which bucket a todo appears under, and how an overdue one looks. Three states now, not a boolean —
+`PENDING`, `DONE`, `CANCELLED` (see [`API_CONTRACTS.md`](./API_CONTRACTS.md) §7).
+
+- [ ] **First:** write the bucketing rule down as prose, agree it, then implement
 - [ ] `/todos` page grouped by day → meal slot
-- [ ] Checkbox toggle with optimistic UI, rolled back on failure
-- **AC:** planning Tuesday lunch beans (12h soak) produces a todo in the agreed slot — assert the exact expected timestamp in the ticket; unchecking and rechecking survives a refresh; removing the plan entry removes the undone todo; a failed toggle visibly reverts
+- [ ] Toggle with optimistic UI, rolled back on failure — `PATCH /todos/:id` with `{ status }`
+- [ ] A way to **cancel** a step, distinct from completing it
+- [ ] Overdue pending todos are visibly overdue, not hidden — nothing on the server expires them
+- **AC:** planning Tuesday lunch beans (8h `SLOT` soak) produces a todo due **Monday 21:30** and it
+  lands in the agreed bucket — assert the exact timestamp; unchecking and rechecking survives a
+  refresh; removing the plan entry removes the *pending* todo and keeps a resolved one; a failed
+  toggle visibly reverts
+
+> Note the `dueAt` filtering trap: `GET /todos?from=&to=` filters on **`dueAt`, not the meal's date**.
+> A soak for Tuesday lunch is Monday's job, so Monday's query returns it and Tuesday's does not. If
+> your day-grouping looks "off by one", this is probably why — and it is correct.
 
 #### MP-71 — Todo timer / countdown
 *Concepts: `setInterval` in an effect, cleanup, stale closures*
@@ -576,6 +648,11 @@ This is the biggest React ticket in the project. The form has: name, photo, note
 - [ ] `/shopping?from=&to=` — grouped by ingredient category, quantities summed, unit-aware
 - [ ] Check-off state persisted locally
 - **AC:** two recipes using 200g + 300g chickpeas show one 500g line; mismatched units (g vs cups) are shown separately rather than wrongly summed; the list recalculates when the plan changes
+
+> The server already does the summing and the unit-aware grouping — one line per
+> `(ingredient, unit)` pair, scaled by `entryServings / recipeServings`. So **do not key your list by
+> `ingredientId` alone**: the same ingredient legitimately appears twice with different units, and a
+> `Map` keyed on the id would silently drop one of them.
 
 #### MP-73 — Export / print view
 - [ ] A print stylesheet or copy-to-clipboard
