@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/malvibhatt/meal-planner/compare/client-v0.3.0...client-v0.4.0) (2026-10-13)
+
+
+### Features
+
+* **client:** add shared axios instance and in-memory token store ([#22](https://github.com/malvibhatt/meal-planner/issues/22)) ([b08dca2](https://github.com/malvibhatt/meal-planner/commit/b08dca2cd63b571e70e4cf68c4b82eecd034a122))
+
 ## [0.3.0](https://github.com/malvibhatt/meal-planner/compare/client-v0.2.0...client-v0.3.0) (2026-09-29)
 
 
